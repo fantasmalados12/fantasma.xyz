@@ -1,0 +1,68 @@
+
+server:
+  dev:
+    port: 3001
+    host: "localhost"
+  prod:
+    port: 3001
+    host: "localhost"
+
+  api_path: "api"
+
+  bandwith_limit: "5mb"
+  cors: {
+    origin: "*"
+  }
+  url_encoded: true
+  prod_api_url: http://45.32.68.25/api
+
+security:
+
+  password:
+
+    pw: "asdflkjasdffd" # the actual password
+    enabled: false
+
+    header: "password" # authorization header the security system is looking for
+
+
+
+digital_ocean_spaces:
+
+  origin_endpoint: https://nomobot-cdn.nyc3.digitaloceanspaces.com
+  
+  keys:
+    secret: /z7Y04nAQxUfjwm8F69aYpt0Fh/1TKw1aMl1EAK05ks
+    access: DO002JXY422X9PY4YFAR
+
+  bucket: "nomobot-cdn"
+  acl: "public-read"
+  region: "us-east-1"
+
+database:
+  postgresql:
+    
+    dev:
+      host: localhost
+      port: 5432
+      database: dlilp
+      user: dlilp
+      password: test123
+    prod: # we want to add docker container soon for data
+      host: "localhost"
+      port: 5432
+      database: "dlilp"
+      user: "dlilp"
+      password: "EnytESVvNRMXHhVpzssXcpQUWcPnjE"
+      url: 
+
+  redis:
+
+    dev:
+      port: 6379
+      host: localhost
+    prod:
+      port: 6379
+      host: localhost
+      password: psqxreSPAivEkAMjBuduXMbZwtEEdZ
+      url: null
