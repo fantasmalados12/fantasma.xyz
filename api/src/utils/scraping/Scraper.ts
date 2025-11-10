@@ -22,72 +22,164 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
 
   try {
     browser = await puppeteer.launch({
-      headless: true,
+      headless: true, // Use standard headless for Chromium compatibility
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-blink-features=AutomationControlled',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--disable-site-isolation-trials'
+        '--window-size=1920,1080',
+        '--disable-infobars',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-extensions',
+        '--disable-sync',
+        '--no-first-run',
+        '--disable-default-apps',
+        '--disable-gpu',
+        '--single-process', // Important for Docker environments
+        '--no-zygote'
       ],
-      executablePath: process.env.CHROME_PATH || undefined
+      executablePath: process.env.CHROME_PATH || undefined,
+      ignoreDefaultArgs: ['--enable-automation']
     });
 
     page = await browser.newPage();
 
     // Set a more realistic user agent
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport({
+      width: 1920,
+      height: 1080,
+      deviceScaleFactor: 1,
+      hasTouch: false,
+      isLandscape: true,
+      isMobile: false
+    });
 
     // Set extra headers to appear more like a real browser
     await page.setExtraHTTPHeaders({
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
       'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
       'Upgrade-Insecure-Requests': '1',
       'Sec-Fetch-Dest': 'document',
       'Sec-Fetch-Mode': 'navigate',
       'Sec-Fetch-Site': 'none',
       'Sec-Fetch-User': '?1',
-      'Cache-Control': 'max-age=0'
+      'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="131", "Google Chrome";v="131"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"macOS"'
     });
 
-    // Additional anti-detection measures
+    // Comprehensive anti-detection measures
     await page.evaluateOnNewDocument(() => {
       // Override the navigator.webdriver property
       Object.defineProperty(navigator, 'webdriver', {
         get: () => false,
       });
 
-      // Override permissions query
+      // Mock chrome runtime
+      (window as any).chrome = {
+        runtime: {},
+      };
+
+      // Override permissions
       const originalQuery = window.navigator.permissions.query;
-      window.navigator.permissions.query = (parameters: any) => (
+      // @ts-ignore
+      window.navigator.permissions.query = (parameters) => (
         parameters.name === 'notifications' ?
-          Promise.resolve({ state: 'denied' } as PermissionStatus) :
+          Promise.resolve({ state: Notification.permission } as PermissionStatus) :
           originalQuery(parameters)
       );
 
-      // Override plugins to make it look like a real browser
+      // Override plugins length
       Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
+        get: () => ({
+          length: 3,
+          0: { name: 'Chrome PDF Plugin' },
+          1: { name: 'Chrome PDF Viewer' },
+          2: { name: 'Native Client' }
+        }),
       });
 
       // Override languages
       Object.defineProperty(navigator, 'languages', {
         get: () => ['en-US', 'en'],
       });
+
+      // Add platform info
+      Object.defineProperty(navigator, 'platform', {
+        get: () => 'MacIntel',
+      });
+
+      // Add hardware concurrency
+      Object.defineProperty(navigator, 'hardwareConcurrency', {
+        get: () => 8,
+      });
+
+      // Add device memory
+      Object.defineProperty(navigator, 'deviceMemory', {
+        get: () => 8,
+      });
     });
 
     // Navigate to the page
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 60000
+      waitUntil: 'networkidle0',
+      timeout: 90000
     });
 
-    // Wait for content to load with a more human-like delay
+    // Simulate mouse movement to appear more human-like
+    await page.mouse.move(100, 100);
+    await page.mouse.move(200, 200);
+
+    // Check if we hit Cloudflare challenge and wait it out
+    let cloudflareDetected = false;
+    let waitAttempts = 0;
+    const maxWaitAttempts = 24; // Wait up to ~120 seconds for Cloudflare
+
+    do {
+      cloudflareDetected = await page.evaluate(() => {
+        const title = document.title.toLowerCase();
+        const bodyText = document.body.innerText.toLowerCase();
+
+        // Check for Cloudflare challenge indicators
+        return title.includes('one more step') ||
+               title.includes('just a moment') ||
+               title.includes('attention required') ||
+               bodyText.includes('checking your browser') ||
+               (bodyText.includes('cloudflare') && bodyText.includes('checking'));
+      });
+
+      if (cloudflareDetected) {
+        console.log(`Cloudflare challenge detected, waiting... (attempt ${waitAttempts + 1}/${maxWaitAttempts})`);
+
+        // Simulate some mouse movement during the wait
+        await page.mouse.move(
+          Math.floor(Math.random() * 1000),
+          Math.floor(Math.random() * 800)
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        waitAttempts++;
+      }
+    } while (cloudflareDetected && waitAttempts < maxWaitAttempts);
+
+    if (cloudflareDetected) {
+      console.error('Failed to bypass Cloudflare after maximum wait time');
+
+      // Take a screenshot for debugging if possible
+      try {
+        const screenshot = await page.screenshot({ encoding: 'base64' });
+        console.log('Screenshot taken (base64 length):', screenshot.length);
+      } catch (e) {
+        console.log('Could not take screenshot');
+      }
+    }
+
+    // Additional wait for content to load with a more human-like delay
     await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
     
     // Scroll down slowly to simulate human behavior
