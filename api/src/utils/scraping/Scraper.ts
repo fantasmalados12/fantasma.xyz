@@ -16,39 +16,75 @@ interface QuizletData {
   terms: QuizletTerm[];
 }
 
+// Pool of realistic user agents to rotate
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+];
+
+function getRandomUserAgent(): string {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
 export async function scrapeQuizlet(url: string): Promise<QuizletData> {
   let browser: Browser | null = null;
   let page: Page | null = null;
 
   try {
+    // Build launch args
+    const launchArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+      '--window-size=1920,1080',
+      '--disable-infobars',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-sync',
+      '--no-first-run',
+      '--disable-default-apps',
+      '--disable-gpu',
+      '--single-process',
+      '--no-zygote',
+      // Enhanced fingerprinting resistance
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-site-isolation-trials',
+      '--lang=en-US,en',
+      '--font-render-hinting=none'
+    ];
+
+    // Add proxy if configured via environment variables
+    if (process.env.PROXY_SERVER) {
+      console.log(`🌐 Using proxy: ${process.env.PROXY_SERVER}`);
+      launchArgs.push(`--proxy-server=${process.env.PROXY_SERVER}`);
+    }
+
     browser = await puppeteer.launch({
-      headless: true, // Use standard headless for Chromium compatibility
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-blink-features=AutomationControlled',
-        '--window-size=1920,1080',
-        '--disable-infobars',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-extensions',
-        '--disable-sync',
-        '--no-first-run',
-        '--disable-default-apps',
-        '--disable-gpu',
-        '--single-process', // Important for Docker environments
-        '--no-zygote'
-      ],
+      headless: true,
+      args: launchArgs,
       executablePath: process.env.CHROME_PATH || undefined,
       ignoreDefaultArgs: ['--enable-automation']
     });
 
     page = await browser.newPage();
 
-    // Set a more realistic user agent
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    // Authenticate proxy if credentials are provided
+    if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+      await page.authenticate({
+        username: process.env.PROXY_USERNAME,
+        password: process.env.PROXY_PASSWORD
+      });
+    }
+
+    // Set a randomized user agent for better rotation
+    const selectedUserAgent = getRandomUserAgent();
+    console.log(`🎭 Using User-Agent: ${selectedUserAgent}`);
+    await page.setUserAgent(selectedUserAgent);
     await page.setViewport({
       width: 1920,
       height: 1080,
@@ -73,7 +109,7 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
       'Sec-Ch-Ua-Platform': '"macOS"'
     });
 
-    // Comprehensive anti-detection measures
+    // Comprehensive anti-detection measures with enhanced fingerprinting
     await page.evaluateOnNewDocument(() => {
       // Override the navigator.webdriver property
       Object.defineProperty(navigator, 'webdriver', {
@@ -83,6 +119,9 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
       // Mock chrome runtime
       (window as any).chrome = {
         runtime: {},
+        loadTimes: function() {},
+        csi: function() {},
+        app: {}
       };
 
       // Override permissions
@@ -94,13 +133,15 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
           originalQuery(parameters)
       );
 
-      // Override plugins length
+      // Enhanced plugins list to appear more realistic
       Object.defineProperty(navigator, 'plugins', {
         get: () => ({
-          length: 3,
-          0: { name: 'Chrome PDF Plugin' },
-          1: { name: 'Chrome PDF Viewer' },
-          2: { name: 'Native Client' }
+          length: 5,
+          0: { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+          1: { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+          2: { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+          3: { name: 'Chromium PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+          4: { name: 'Microsoft Edge PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
         }),
       });
 
@@ -109,19 +150,98 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
         get: () => ['en-US', 'en'],
       });
 
-      // Add platform info
+      // Add platform info (randomize between common platforms)
+      const platforms = ['Win32', 'MacIntel', 'Linux x86_64'];
       Object.defineProperty(navigator, 'platform', {
-        get: () => 'MacIntel',
+        get: () => platforms[Math.floor(Math.random() * platforms.length)],
       });
 
-      // Add hardware concurrency
+      // Add hardware concurrency (randomize to appear more natural)
       Object.defineProperty(navigator, 'hardwareConcurrency', {
-        get: () => 8,
+        get: () => [4, 8, 12, 16][Math.floor(Math.random() * 4)],
       });
 
       // Add device memory
       Object.defineProperty(navigator, 'deviceMemory', {
-        get: () => 8,
+        get: () => [4, 8, 16][Math.floor(Math.random() * 3)],
+      });
+
+      // Mock WebGL vendor and renderer to avoid headless detection
+      const getParameter = WebGLRenderingContext.prototype.getParameter;
+      WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) {
+          return 'Intel Inc.';
+        }
+        if (parameter === 37446) {
+          return 'Intel Iris OpenGL Engine';
+        }
+        return getParameter.call(this, parameter);
+      };
+
+      // Override WebGL2 as well
+      const getParameter2 = WebGL2RenderingContext.prototype.getParameter;
+      WebGL2RenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) {
+          return 'Intel Inc.';
+        }
+        if (parameter === 37446) {
+          return 'Intel Iris OpenGL Engine';
+        }
+        return getParameter2.call(this, parameter);
+      };
+
+      // Add more realistic battery API
+      Object.defineProperty(navigator, 'getBattery', {
+        value: () => Promise.resolve({
+          charging: true,
+          chargingTime: 0,
+          dischargingTime: Infinity,
+          level: 1,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => true
+        })
+      });
+
+      // Mock connection API
+      Object.defineProperty(navigator, 'connection', {
+        get: () => ({
+          effectiveType: '4g',
+          rtt: 100,
+          downlink: 10,
+          saveData: false
+        })
+      });
+
+      // Override headless-specific properties
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        get: () => 0
+      });
+
+      // Mock media devices
+      Object.defineProperty(navigator, 'mediaDevices', {
+        get: () => ({
+          enumerateDevices: () => Promise.resolve([
+            { deviceId: 'default', kind: 'audioinput', label: 'Default', groupId: 'group1' },
+            { deviceId: 'default', kind: 'audiooutput', label: 'Default', groupId: 'group1' },
+            { deviceId: 'default', kind: 'videoinput', label: 'Default', groupId: 'group2' }
+          ]),
+          getUserMedia: () => Promise.resolve({} as MediaStream),
+          getSupportedConstraints: () => ({})
+        })
+      });
+
+      // Add screen properties that look realistic
+      Object.defineProperty(window.screen, 'availWidth', { get: () => 1920 });
+      Object.defineProperty(window.screen, 'availHeight', { get: () => 1080 });
+      Object.defineProperty(window.screen, 'width', { get: () => 1920 });
+      Object.defineProperty(window.screen, 'height', { get: () => 1080 });
+      Object.defineProperty(window.screen, 'colorDepth', { get: () => 24 });
+      Object.defineProperty(window.screen, 'pixelDepth', { get: () => 24 });
+
+      // Mock notification permissions
+      Object.defineProperty(Notification, 'permission', {
+        get: () => 'default'
       });
     });
 
@@ -232,10 +352,42 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
               // Wait a bit for the iframe to load
               await new Promise(resolve => setTimeout(resolve, 2000));
 
-              // Try to click inside the iframe
+              // Get the iframe element to find its position
+              const iframeElement = await page.$(`iframe[src*="challenges.cloudflare.com"], iframe[src*="turnstile"]`);
+
+              if (iframeElement) {
+                // Get the bounding box of the iframe
+                const box = await iframeElement.boundingBox();
+
+                if (box) {
+                  console.log(`Iframe found at position: x=${box.x}, y=${box.y}, width=${box.width}, height=${box.height}`);
+
+                  // Click in the center of the iframe with realistic coordinates
+                  const clickX = box.x + box.width / 2;
+                  const clickY = box.y + box.height / 2;
+
+                  console.log(`Clicking iframe at coordinates: (${clickX}, ${clickY})`);
+
+                  // Move mouse to the position naturally
+                  await page.mouse.move(clickX - 10, clickY - 10, { steps: 10 });
+                  await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+                  await page.mouse.move(clickX, clickY, { steps: 5 });
+                  await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+
+                  // Click with realistic timing
+                  await page.mouse.down();
+                  await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 50));
+                  await page.mouse.up();
+
+                  console.log('✅ Clicked on challenge iframe with mouse coordinates');
+                }
+              }
+
+              // Also try to click inside the iframe content
               const clicked = await frame.evaluate(() => {
                 const checkbox = document.querySelector('input[type="checkbox"]');
                 const button = document.querySelector('button');
+                const clickableDiv = document.querySelector('[role="button"]');
 
                 if (checkbox) {
                   console.log('Clicking checkbox in iframe...');
@@ -246,6 +398,12 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
                 if (button) {
                   console.log('Clicking button in iframe...');
                   (button as HTMLElement).click();
+                  return true;
+                }
+
+                if (clickableDiv) {
+                  console.log('Clicking clickable div in iframe...');
+                  (clickableDiv as HTMLElement).click();
                   return true;
                 }
 
@@ -261,8 +419,11 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
               }).catch(() => false);
 
               if (clicked) {
-                console.log('Successfully clicked challenge in iframe');
+                console.log('✅ Successfully clicked challenge element in iframe');
               }
+
+              // Wait after clicking to let the challenge process
+              await new Promise(resolve => setTimeout(resolve, 3000));
             }
           } catch (e) {
             // Frame might not be accessible, continue
