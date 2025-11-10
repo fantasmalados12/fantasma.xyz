@@ -1,0 +1,72 @@
+name: API
+
+on:
+  push: 
+    branches:
+      - "main"
+    paths:
+      - "api/**"
+      - "bot/**"
+      - "config/**"
+      - "postgres/**"
+      - "redis/**"
+      - "proxy/**"
+      - ".github/workflows/flow.yaml"
+
+jobs:
+  
+  build:
+    runs-on: fantasma
+    steps:
+    # - uses: actions/checkout@v3
+    # - name: Copy config directory to bot and api directories
+    #   run: |
+    #     set -e
+    #     cp -r ./config ./bot/
+    #     cp -r ./config ./api/
+    #     cp -r ./config ./website/
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: |
+        set -e
+
+        cp -r config api
+        cp -r config frontend
+
+        sleep 5
+        mkdir -p redis-data:/bitnami/redis/data
+        mkdir -p postgres-data:/var/lib/postgresql/data
+
+        docker build --tag ft-postgres ./postgres
+        docker build --tag ft-redis ./redis
+        docker build --tag ft-api ./api
+        docker build --tag ft-frontend ./frontend
+        docker build --tag ft-proxy ./proxy
+
+  deploy:
+
+    runs-on: fantasma
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Launch docker containers
+        run: |
+          set -e
+          echo "Starting the docker containers"
+          docker rm -f redis && docker run -d --restart always --net host -v redis-data:/bitnami/redis/data -e REDIS_PASSWORD=psqxreSPAivEkAMjBuduXMbZwtEEdZ -e DISABLE_COMMANDS=FLUSHDB,FLUSHALL,CONFIG,POST,Host --name redis ft-redis
+          docker rm -f postgres && docker run -d --name postgres \
+            -v postgres-data:/var/lib/postgresql/data \
+            -e POSTGRES_DB=dlilp \
+            -e POSTGRES_USER=dlilp \
+            -e POSTGRES_PASSWORD=EnytESVvNRMXHhVpzssXcpQUWcPnjE \
+            -p 5432:5432 \
+            --restart always \
+            cn-postgres
+          sleep 5
+          docker rm -f api && docker run -d --restart always --net host --name api ft-api
+          docker rm -f frontend && docker run -d --restart always --net host --name bot ft-frontend
+          docker rm -f proxy && docker run -d --restart always --net host --name proxy ft-proxy
+          docker system prune --all --force 
+
+
