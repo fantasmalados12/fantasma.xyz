@@ -40,7 +40,10 @@ jobs:
         docker build --tag ft-postgres ./postgres
         docker build --tag ft-redis ./redis
         docker build --tag ft-api ./api
-        docker build --tag ft-frontend ./frontend
+        docker build \
+        --build-arg PUBLIC_SUPABASE_URL="https://owxnszpfwbavprxielsb.supabase.co" \
+        --build-arg PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93eG5zenBmd2JhdnByeGllbHNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3ODM2NDksImV4cCI6MjA3ODM1OTY0OX0.0wbDQTDzZlJe0HyZ9B8Ys7HX8GzU4gGgZawQtzxqBCc" \
+        --tag ft-frontend ./frontend
         docker build --tag ft-proxy ./proxy
 
   deploy:
