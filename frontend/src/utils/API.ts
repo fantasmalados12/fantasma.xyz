@@ -2,7 +2,7 @@ import { authStore } from './authStore.svelte';
 
 export const getAPIUrlBasedOffEnviornment = (): string => {
 
-    let url: string = import.meta.env.DEV ? `http://localhost:3001` : `https://fantasma.io`;
+    let url: string = import.meta.env.DEV ? `http://localhost:3001` : `https://fantasma.xyz`;
 
     return url;
 
