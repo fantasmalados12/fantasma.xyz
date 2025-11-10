@@ -123,6 +123,31 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
         get: () => false,
       });
 
+      // Add mouse movement tracking to appear more human
+      let mouseMovements: any[] = [];
+      let clickCount = 0;
+      let keyPresses = 0;
+
+      // Track mouse movements
+      document.addEventListener('mousemove', (e) => {
+        mouseMovements.push({ x: e.clientX, y: e.clientY, time: Date.now() });
+        if (mouseMovements.length > 100) {
+          mouseMovements.shift();
+        }
+      });
+
+      document.addEventListener('click', () => {
+        clickCount++;
+      });
+
+      document.addEventListener('keydown', () => {
+        keyPresses++;
+      });
+
+      // Override automation detection properties
+      (window as any).isAutomated = false;
+      (navigator as any).automation = undefined;
+
       // Mock chrome runtime
       (window as any).chrome = {
         runtime: {},
@@ -266,10 +291,33 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
     console.log(initialScreenshot);
     console.log('=== END SCREENSHOT ===\n');
 
-    // Simulate mouse movement to appear more human-like
-    await page.mouse.move(100, 100);
+    // Simulate extensive mouse movement to build behavior profile
+    console.log('Building human behavior profile with mouse movements...');
+    for (let i = 0; i < 10; i++) {
+      const x = Math.random() * 1920;
+      const y = Math.random() * 1080;
+      await page.mouse.move(x, y, { steps: Math.floor(Math.random() * 10) + 5 });
+      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+    }
+
+    // Add some random clicks to build interaction history
+    await page.mouse.click(500 + Math.random() * 100, 300 + Math.random() * 100);
     await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
-    await page.mouse.move(200, 200);
+    await page.mouse.click(700 + Math.random() * 100, 400 + Math.random() * 100);
+    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 300));
+
+    // Add keyboard events to simulate real user
+    await page.keyboard.press('Tab');
+    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 100));
+
+    // Simulate scrolling behavior
+    await page.evaluate(() => {
+      window.scrollBy(0, 100);
+    });
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
+    await page.evaluate(() => {
+      window.scrollBy(0, -50);
+    });
     await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 300));
 
     // Check if we hit Cloudflare challenge and handle it
@@ -405,67 +453,207 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
                   console.log(`Iframe found at position: x=${box.x}, y=${box.y}, width=${box.width}, height=${box.height}`);
 
                   // Click in the center of the iframe with realistic coordinates
-                  const clickX = box.x + box.width / 2;
-                  const clickY = box.y + box.height / 2;
+                  // Use slightly off-center to appear more human
+                  const clickX = box.x + (box.width / 2) + (Math.random() * 10 - 5);
+                  const clickY = box.y + (box.height / 2) + (Math.random() * 10 - 5);
 
-                  console.log(`Clicking iframe at coordinates: (${clickX}, ${clickY})`);
+                  console.log(`Clicking iframe at coordinates: (${clickX.toFixed(2)}, ${clickY.toFixed(2)})`);
 
-                  // Move mouse to the position naturally
-                  await page.mouse.move(clickX - 10, clickY - 10, { steps: 10 });
-                  await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
-                  await page.mouse.move(clickX, clickY, { steps: 5 });
+                  // Move mouse to the position naturally with human-like curve
+                  const startX = Math.random() * 500;
+                  const startY = Math.random() * 500;
+
+                  await page.mouse.move(startX, startY);
                   await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+
+                  // Move in multiple steps to create a curved path
+                  const steps = 20;
+                  for (let i = 1; i <= steps; i++) {
+                    const progress = i / steps;
+                    const currentX = startX + (clickX - startX) * progress;
+                    const currentY = startY + (clickY - startY) * progress;
+                    await page.mouse.move(currentX, currentY);
+                    await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 20));
+                  }
+
+                  // Pause before clicking (human behavior)
+                  await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
 
                   // Click with realistic timing
                   await page.mouse.down();
-                  await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 50));
+                  await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
                   await page.mouse.up();
 
                   console.log('✅ Clicked on challenge iframe with mouse coordinates');
+
+                  // Wait a moment after click
+                  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
                 }
               }
 
-              // Also try to click inside the iframe content
+              // Also try to click inside the iframe content with detailed debugging
+              const iframeContent = await frame.evaluate(() => {
+                const html = document.documentElement.innerHTML;
+                const bodyText = document.body ? document.body.innerText : '';
+
+                // Log what we see in the iframe
+                console.log('Iframe body text:', bodyText.substring(0, 200));
+                console.log('Iframe has checkbox:', !!document.querySelector('input[type="checkbox"]'));
+                console.log('Iframe has button:', !!document.querySelector('button'));
+                console.log('Iframe has clickable div:', !!document.querySelector('[role="button"]'));
+
+                return {
+                  bodyText: bodyText.substring(0, 200),
+                  hasCheckbox: !!document.querySelector('input[type="checkbox"]'),
+                  hasButton: !!document.querySelector('button'),
+                  htmlLength: html.length
+                };
+              }).catch(() => null);
+
+              console.log('Iframe content analysis:', iframeContent);
+
+              // Try multiple clicking strategies
               const clicked = await frame.evaluate(() => {
                 const checkbox = document.querySelector('input[type="checkbox"]');
                 const button = document.querySelector('button');
                 const clickableDiv = document.querySelector('[role="button"]');
+                const span = document.querySelector('span');
+                const label = document.querySelector('label');
 
+                // Try checkbox
                 if (checkbox) {
-                  console.log('Clicking checkbox in iframe...');
+                  console.log('Found and clicking checkbox in iframe...');
                   (checkbox as HTMLElement).click();
-                  return true;
+                  setTimeout(() => (checkbox as HTMLElement).click(), 100); // Double click
+                  return 'checkbox';
                 }
 
+                // Try button
                 if (button) {
-                  console.log('Clicking button in iframe...');
+                  console.log('Found and clicking button in iframe...');
                   (button as HTMLElement).click();
-                  return true;
+                  setTimeout(() => (button as HTMLElement).click(), 100); // Double click
+                  return 'button';
                 }
 
+                // Try clickable div
                 if (clickableDiv) {
-                  console.log('Clicking clickable div in iframe...');
+                  console.log('Found and clicking clickable div in iframe...');
                   (clickableDiv as HTMLElement).click();
-                  return true;
+                  return 'clickable-div';
                 }
 
-                // Try to click anywhere in the challenge box
+                // Try label (common for Turnstile)
+                if (label) {
+                  console.log('Found and clicking label in iframe...');
+                  (label as HTMLElement).click();
+                  return 'label';
+                }
+
+                // Try span
+                if (span) {
+                  console.log('Found and clicking span in iframe...');
+                  (span as HTMLElement).click();
+                  return 'span';
+                }
+
+                // Last resort: click center of body
                 const body = document.body;
                 if (body) {
-                  console.log('Clicking body in iframe...');
-                  body.click();
-                  return true;
+                  console.log('Clicking body center in iframe...');
+                  const rect = body.getBoundingClientRect();
+                  const x = rect.width / 2;
+                  const y = rect.height / 2;
+
+                  const clickEvent = new MouseEvent('click', {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: x,
+                    clientY: y
+                  });
+                  body.dispatchEvent(clickEvent);
+                  return 'body-event';
                 }
 
-                return false;
-              }).catch(() => false);
+                return null;
+              }).catch((e) => {
+                console.log('Error clicking in iframe:', e);
+                return null;
+              });
 
               if (clicked) {
-                console.log('✅ Successfully clicked challenge element in iframe');
+                console.log(`✅ Successfully clicked challenge element in iframe (type: ${clicked})`);
+              } else {
+                console.log('⚠️ Could not find clickable element in iframe');
               }
 
-              // Wait after clicking to let the challenge process
-              await new Promise(resolve => setTimeout(resolve, 3000));
+              // Wait longer after clicking to let the challenge process and verify
+              console.log('Waiting for challenge to process...');
+
+              // Wait up to 15 seconds, checking status every 3 seconds
+              let processingAttempts = 0;
+              const maxProcessingAttempts = 5;
+              let stillProcessing = true;
+
+              while (processingAttempts < maxProcessingAttempts && stillProcessing) {
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                processingAttempts++;
+
+                // Check if challenge was solved
+                const challengeStatus = await frame.evaluate(() => {
+                  const bodyText = document.body ? document.body.innerText.toLowerCase() : '';
+                  const hasSpinner = document.querySelector('[class*="spinner"]') ||
+                                    document.querySelector('[class*="loading"]') ||
+                                    document.querySelector('svg[class*="animate"]');
+
+                  return {
+                    bodyText: bodyText.substring(0, 150),
+                    hasSuccess: bodyText.includes('success') || bodyText.includes('verified'),
+                    hasError: bodyText.includes('error') || bodyText.includes('failed'),
+                    hasStuck: bodyText.includes('stuck here'),
+                    hasFeedback: bodyText.includes('send feedback'),
+                    hasSpinner: !!hasSpinner
+                  };
+                }).catch(() => ({
+                  bodyText: '',
+                  hasSuccess: false,
+                  hasError: false,
+                  hasStuck: false,
+                  hasFeedback: false,
+                  hasSpinner: false
+                }));
+
+                console.log(`Challenge status (attempt ${processingAttempts}/${maxProcessingAttempts}):`, challengeStatus);
+
+                // If we see success, stop waiting
+                if (challengeStatus.hasSuccess) {
+                  console.log('✅ Challenge solved successfully!');
+                  stillProcessing = false;
+                  break;
+                }
+
+                // If stuck, this likely means bot detection - need different approach
+                if (challengeStatus.hasStuck || challengeStatus.hasFeedback) {
+                  console.log('⚠️ Challenge appears stuck - Cloudflare may have detected automation');
+                  console.log('💡 Recommendation: Use a residential proxy or captcha solving service');
+                  stillProcessing = false;
+                  break;
+                }
+
+                // If no spinner and no stuck message, might have passed
+                if (!challengeStatus.hasSpinner && !challengeStatus.hasStuck) {
+                  console.log('✅ No spinner detected, challenge may be complete');
+                  stillProcessing = false;
+                  break;
+                }
+
+                console.log('Challenge still processing, waiting...');
+              }
+
+              if (stillProcessing) {
+                console.log('⏱️ Challenge processing timed out after 15 seconds');
+              }
             }
           } catch (e) {
             // Frame might not be accessible, continue
@@ -479,13 +667,36 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
           console.log('⚠️  No clickable challenge element found');
         }
 
+        // Check if we've actually passed the challenge on the main page
+        const mainPagePassed = await page.evaluate(() => {
+          const bodyText = document.body.innerText.toLowerCase();
+          const title = document.title.toLowerCase();
+
+          // Check if we're now on the actual content page
+          const hasQuizletContent = bodyText.includes('terms in this set') ||
+                                   bodyText.includes('quizlet') ||
+                                   document.querySelectorAll('[class*="TermText"]').length > 0;
+
+          const noChallengeText = !bodyText.includes('one more step') &&
+                                 !bodyText.includes('checking your browser') &&
+                                 !bodyText.includes('unblock');
+
+          return hasQuizletContent || (noChallengeText && !title.includes('just a moment'));
+        });
+
+        if (mainPagePassed) {
+          console.log('✅ Challenge appears to be passed! Main page shows content.');
+          cloudflareDetected = false;
+          break;
+        }
+
         // Simulate realistic mouse movement during the wait
         const randomX = 300 + Math.floor(Math.random() * 700);
         const randomY = 200 + Math.floor(Math.random() * 600);
         await page.mouse.move(randomX, randomY);
 
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Wait before checking again (reduced since we're checking more frequently)
+        await new Promise(resolve => setTimeout(resolve, 3000));
         waitAttempts++;
       }
     } while (cloudflareDetected && waitAttempts < maxWaitAttempts);

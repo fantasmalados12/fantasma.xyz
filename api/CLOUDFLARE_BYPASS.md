@@ -156,6 +156,11 @@ Scraped X terms
   - `setBypassCSP(true)` to bypass Content Security Policy
   - Extended wait times for iframe loading
   - These should resolve the iframe blocking issue
+- **Loading spinner with "Stuck here? Send feedback"**: This means Cloudflare Turnstile has detected automation and is refusing to pass the challenge. This is the hardest challenge to bypass. Solutions:
+  1. **Use a residential proxy** (most important) - datacenter IPs trigger stricter checks
+  2. **Use a captcha solving service** like 2Captcha, Anti-Captcha, or CapSolver
+  3. **Run in non-headless mode** with a real display server (Xvfb)
+  4. Consider alternative approaches (API if available, different data source, etc.)
 
 ## Advanced Options
 
