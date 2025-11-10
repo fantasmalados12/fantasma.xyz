@@ -26,6 +26,7 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.81.0",
+		"@sveltejs/adapter-node": "^5.4.0",
 		"axios": "^1.13.2"
 	}
 }
