@@ -49,11 +49,9 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
 
-# Expose port (change if needed)
-EXPOSE 3002
-
-# Set production environment
+# Set production environment and port
 ENV NODE_ENV=production
+ENV PORT=3002
 
 # Run your app
 CMD ["node", "build"]
