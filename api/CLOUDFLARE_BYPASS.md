@@ -151,6 +151,11 @@ Scraped X terms
 - **"Failed to bypass Cloudflare after maximum wait time"**: Your IP may be on a blocklist, use a different proxy
 - **Screenshots show captcha**: Some challenges require human solving services (2captcha, Anti-Captcha)
 - **Browser crashes**: Increase VPS memory or adjust Chrome flags
+- **"One more step" with "unblock challenges.cloudflare.com"**: This means the Cloudflare challenge iframe is being blocked. The scraper now includes:
+  - `--disable-web-security` flag to allow all third-party content
+  - `setBypassCSP(true)` to bypass Content Security Policy
+  - Extended wait times for iframe loading
+  - These should resolve the iframe blocking issue
 
 ## Advanced Options
 

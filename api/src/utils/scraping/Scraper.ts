@@ -55,7 +55,11 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
       '--disable-features=IsolateOrigins,site-per-process',
       '--disable-site-isolation-trials',
       '--lang=en-US,en',
-      '--font-render-hinting=none'
+      '--font-render-hinting=none',
+      // Allow all third-party iframes and disable blocking
+      '--disable-web-security',
+      '--disable-features=IsolateOrigins',
+      '--disable-site-isolation-for-policy'
     ];
 
     // Add proxy if configured via environment variables
@@ -80,6 +84,9 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
         password: process.env.PROXY_PASSWORD
       });
     }
+
+    // Allow all third-party content and disable content blocking
+    await page.setBypassCSP(true);
 
     // Set a randomized user agent for better rotation
     const selectedUserAgent = getRandomUserAgent();
@@ -277,19 +284,42 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
         const html = document.documentElement.innerHTML.toLowerCase();
 
         // Check for Cloudflare challenge indicators
-        return title.includes('one more step') ||
+        const isChallenge = title.includes('one more step') ||
                title.includes('just a moment') ||
                title.includes('attention required') ||
                bodyText.includes('checking your browser') ||
                bodyText.includes('verify you are human') ||
                bodyText.includes('enable javascript and cookies') ||
+               bodyText.includes('unblock') ||
+               bodyText.includes('challenges.cloudflare.com') ||
                html.includes('cloudflare') ||
                html.includes('cf-challenge') ||
                html.includes('cf_chl_opt');
+
+        // Log what we found for debugging
+        if (isChallenge) {
+          console.log('Challenge detection details:');
+          console.log('- Title:', title);
+          console.log('- Body includes "unblock":', bodyText.includes('unblock'));
+          console.log('- Body includes "challenges.cloudflare.com":', bodyText.includes('challenges.cloudflare.com'));
+        }
+
+        return isChallenge;
       });
 
       if (cloudflareDetected) {
         console.log(`\n🛡️  Cloudflare challenge detected (attempt ${waitAttempts + 1}/${maxWaitAttempts})`);
+
+        // Get page content for debugging
+        const pageContent = await page.evaluate(() => {
+          return {
+            title: document.title,
+            bodyText: document.body.innerText.substring(0, 500),
+            iframeCount: document.querySelectorAll('iframe').length,
+            iframeSrcs: Array.from(document.querySelectorAll('iframe')).map(iframe => iframe.src)
+          };
+        });
+        console.log('Page details:', JSON.stringify(pageContent, null, 2));
 
         // Take screenshot of the challenge
         const challengeScreenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
@@ -337,6 +367,18 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
           return false;
         });
 
+        // Wait for iframe to appear if needed
+        try {
+          console.log('Waiting for challenge iframe to load...');
+          await page.waitForSelector('iframe[src*="challenges.cloudflare.com"], iframe[src*="turnstile"]', {
+            timeout: 10000
+          }).catch(() => {
+            console.log('No iframe found with waitForSelector, checking existing frames...');
+          });
+        } catch (e) {
+          console.log('Timeout waiting for iframe, continuing anyway...');
+        }
+
         // Try to find and interact with iframe-based challenges (like Turnstile)
         const frames = page.frames();
         console.log(`Found ${frames.length} frames on page`);
@@ -349,8 +391,8 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
             if (frameUrl.includes('challenges.cloudflare.com') || frameUrl.includes('turnstile')) {
               console.log('Found Cloudflare challenge iframe, attempting to interact...');
 
-              // Wait a bit for the iframe to load
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              // Wait longer for the iframe to fully load
+              await new Promise(resolve => setTimeout(resolve, 3000));
 
               // Get the iframe element to find its position
               const iframeElement = await page.$(`iframe[src*="challenges.cloudflare.com"], iframe[src*="turnstile"]`);
