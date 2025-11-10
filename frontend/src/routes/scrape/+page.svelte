@@ -1,14 +1,17 @@
 
 <script lang="ts">
     import { getCognateScore } from "../../utils/extras/Cognates";
+    import { addLibrarySet } from "../../utils/LibrarySets";
     import { getVerbConjugations, scrapeURL } from "../../utils/Scraper";
+    import { authStore } from "../../utils/authStore.svelte";
 
 
     let url: string;
     let vocabResults: any;
     let vocabularySet: any;
+    let setTitle: string = '';
     let loading: boolean = false;
-    let showConjugations: boolean = false; 
+    let showConjugations: boolean = false;
     let conjugations: any = {};
 
     async function extractQuizlet() {
@@ -16,10 +19,14 @@
         // Scrape with the API
         const results: any = await scrapeURL(url);
 
-        console.log(results);
+        console.log('Full API results:', results);
+        console.log('Received title from API:', results.title);
 
         vocabResults = results.vocabStats;
         vocabularySet = results.vocabStats.terms;
+        setTitle = results.title || 'Untitled Set';
+
+        console.log('Set title to:', setTitle);
 
         // stop animation
         loading = false;
@@ -49,6 +56,14 @@
         conjugations = showableConjugations
 
         showConjugations = !showConjugations;
+    }
+
+    async function addToLibrary() {
+        const userId = authStore.user?.id;
+
+        if (userId) {
+            await addLibrarySet(setTitle, vocabularySet, userId);
+        }
     }
 
         // Example: number of items per page
@@ -138,6 +153,13 @@
 
     {#if vocabularySet && !loading}
 
+    <!-- Display the set title -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{setTitle}</h2>
+        </div>
+    </div>
+
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
         <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Vocab Statistics</h2>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -207,7 +229,9 @@
         </div>
 
         <!-- Add to Library -->
-        <button class="flex items-center gap-3 p-2 rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+        <button 
+            on:click={addToLibrary}
+        class="flex items-center gap-3 p-2 rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
             <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                 Add to Library
             </span>

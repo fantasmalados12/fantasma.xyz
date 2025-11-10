@@ -1,5 +1,7 @@
 
 import * as SpanishVerbs from "spanish-verbs";
+// @ts-ignore
+import { exceptions } from "spanish-verbs/dist/exceptions";
 
 const person1to5toOptions: any = {
     0: ['first', 'singular'],
@@ -69,4 +71,10 @@ export function getEveryConjugationOfVerb(verb: string): any {
     return verbConjugations;
 
 
+}
+
+export function isVerbIrregular(verb: string): boolean {
+    // Check if the verb exists in the exceptions object
+    // which contains all irregular verb conjugations
+    return exceptions.hasOwnProperty(verb.toLowerCase());
 }

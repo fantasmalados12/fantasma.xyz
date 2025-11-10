@@ -41,7 +41,7 @@ digital_ocean_spaces:
 
 database:
   postgresql:
-    
+
     dev:
       host: localhost
       port: 5432
@@ -54,7 +54,7 @@ database:
       database: "dlilp"
       user: "dlilp"
       password: "EnytESVvNRMXHhVpzssXcpQUWcPnjE"
-      url: 
+      url:
 
   redis:
 
@@ -66,3 +66,13 @@ database:
       host: localhost
       password: psqxreSPAivEkAMjBuduXMbZwtEEdZ
       url: null
+
+  supabase:
+    dev:
+      url: https://owxnszpfwbavprxielsb.supabase.co
+      anon_key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93eG5zenBmd2JhdnByeGllbHNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3ODM2NDksImV4cCI6MjA3ODM1OTY0OX0.0wbDQTDzZlJe0HyZ9B8Ys7HX8GzU4gGgZawQtzxqBCc
+      service_role_key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93eG5zenBmd2JhdnByeGllbHNiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc4MzY0OSwiZXhwIjoyMDc4MzU5NjQ5fQ.FfBycxskhgxdjcTTCFA3i5FX3ALGl0F1dLnIVa5oS3Q
+    prod:
+      url: https://abpesbxmunspoxztrygm.supabase.co
+      anon_key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicGVzYnhtdW5zcG94enRyeWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3ODM2MTcsImV4cCI6MjA3ODM1OTYxN30.q8cDAkq7L3FelAfoZT2d65Pg-QWzGQ7LhjhJImWY81o
+      service_role_key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFicGVzYnhtdW5zcG94enRyeWdtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc4MzYxNywiZXhwIjoyMDc4MzU5NjE3fQ.qzTOsvIDYnHGK0ImGNp2qCo85lVWxzapevi-4QHlNBk

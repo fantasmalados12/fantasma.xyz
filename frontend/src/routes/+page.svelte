@@ -1,4 +1,30 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
+    import { onMount } from "svelte";
+    import { getRecentVocabSets } from "../utils/LibrarySets";
+    import { authStore } from "../utils/authStore.svelte";
+
+    let recentSets: any = [];
+    let loading = true;
+
+    onMount(async() => {
+        // Wait for auth to initialize
+        while (authStore.loading) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Get user ID from auth store
+        const userId = authStore.user?.id;
+
+        if (userId) {
+            const sets = await getRecentVocabSets(userId);
+            console.log(sets);
+            recentSets = sets.recentVocabSets;
+        }
+
+        loading = false;
+    });
+
   const stats = [
     { 
       label: 'Hours Studied', 
@@ -69,10 +95,12 @@
   ];
   
   const quickActions = [
-    { name: 'New Vocabulary', icon: 'plus', color: 'purple' },
-    { name: 'View History', icon: 'clock', color: 'indigo' },
-    { name: 'Export Data', icon: 'download', color: 'blue' },
+    { name: 'New Vocabulary', icon: 'plus', color: 'purple', path: '/scrape' },
+    { name: 'View Statistics', icon: 'clock', color: 'indigo', path: '/statistics' },
+    { name: 'Export Data', icon: 'download', color: 'blue', path: '/export' },
   ];
+
+  const handleNav = (path: string) => { goto(path) }
 </script>
 
 <div class="space-y-6">
@@ -82,7 +110,7 @@
     <p class="text-gray-600 dark:text-gray-400">Welcome back! Here's what's happening with your scrapes.</p>
   </div>
   
-  <!-- Stats Grid -->
+  <!-- Stats Grid
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
     {#each stats as stat}
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
@@ -124,14 +152,14 @@
         <p class="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
       </div>
     {/each}
-  </div>
+  </div> -->
   
   <!-- Quick Actions -->
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
     <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {#each quickActions as action}
-        <button class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+        <button on:click={() => { handleNav(action.path) }} class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
           {#if action.icon === 'plus'}
             <svg class="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -160,19 +188,19 @@
       </button>
     </div>
     <div class="space-y-4">
-      {#each recentActivity as activity}
+      {#each recentSets as activity}
         <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+            <!-- <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
               {activity.terms}
-            </div>
+            </div> -->
             <div>
               <p class="font-medium text-gray-900 dark:text-white">{activity.title}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">{activity.terms} terms extracted</p>
+              <!-- <p class="text-sm text-gray-500 dark:text-gray-400">{activity.terms} terms extracted</p> -->
             </div>
           </div>
           <div class="flex items-center gap-4">
-            <span class="text-sm text-gray-500 dark:text-gray-400">{activity.time}</span>
+            <span class="text-sm text-gray-500 dark:text-gray-400">{activity.days_since_update} days ago</span>
             <div class="flex items-center gap-1 text-green-600 dark:text-green-400">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />

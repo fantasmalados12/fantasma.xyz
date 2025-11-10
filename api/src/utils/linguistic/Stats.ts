@@ -34,12 +34,17 @@ const stemSpanishVerb = (word: string) => word.replace(/(ar|er|ir)$/i, '');
 /**
  * Normalize string for comparison
  */
-const normalize = (w: string) =>
-  w.toLowerCase()
-   .normalize("NFD")
-   .replace(/[\u0300-\u036f]/g, "")
-   .replace(/[^a-z]/g, "")
-   .trim();
+const normalize = (w: string) => {
+    if (w.startsWith("la") || w.startsWith("el")) {
+        w = w.split(" ").slice(1).join(" ");
+    }
+
+    return w.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z]/g, "")
+      .trim();
+}
 
 /**
  * Compute Levenshtein distance
@@ -101,9 +106,10 @@ const getCognateScore = (spanishTerm: string, englishDefinition: string): number
  * Determine basic part-of-speech from Spanish term (approximation)
  */
 const detectPOS = (term: string): 'verb' | 'noun' | 'adjective' => {
-  if (/(ar|er|ir)$/.test(term)) return 'verb';
-  if (/ado$|ido$|oso$|osa$|ante$|ente$|ico$|ica$|al$|ble$/.test(term)) return 'adjective';
-  return 'noun';
+  if (/(ar|er|ir)$/.test(term) && term.split(" ")[0]) return 'verb';
+//   if (/ado$|ido$|oso$|osa$|ante$|ente$|ico$|ica$|al$|ble$/.test(term)) return 'adjective';
+    if (term.split(" ")[0] === "la" || term.split(" ")[0] === "el") return 'noun';
+  return 'adjective';
 };
 
 /**

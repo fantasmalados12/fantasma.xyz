@@ -1,0 +1,6 @@
+1. Seeing in spanish word and typing out the spanish word or vise versa
+2. If you don't want to show the words you're struggling with, toggle whether or not it repeats them
+3. Have it to where you can create sentences with the words and listen to them
+4. Putting verbs into sentences
+5. Fix typing for verbs not taking in "to"
+6. Settings for tilde marking for incorrect / correct

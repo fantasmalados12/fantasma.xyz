@@ -22,8 +22,13 @@ const app = express();
 
 // Global variables / loaders
 export const config: any = ConfigLoader("config.yaml");
-// export const redis: Redis = new Redis(DatabaseLoader.getDatabaseCredentials('redis'));
+export const redis: Redis = new Redis(DatabaseLoader.getDatabaseCredentials('redis'));
 export const postgres: pg.Pool = new pg.Pool(DatabaseLoader.getDatabaseCredentials('postgresql'));
+
+// Initialize Supabase client
+const supabaseCredentials = DatabaseLoader.getDatabaseCredentials('supabase');
+export const supabase = createClient(supabaseCredentials.url, supabaseCredentials.anon_key);
+export const supabaseAdmin = createClient(supabaseCredentials.url, supabaseCredentials.service_role_key);
 
 // Trust issue prevention
 app.use(express.json());
@@ -51,10 +56,10 @@ const host: string = config.server[process.argv[2]].host;
 app.listen(port, host, async () => {
 
     // Run the postgresql database wrapper NODE PG
-    // await DatabaseLoader.postgres(postgres);
+    await DatabaseLoader.postgres(postgres);
 
-    // // Run the redis database wrapper with IOREDIS
-    // await DatabaseLoader.redis(redis);
+    // Run the redis database wrapper with IOREDIS
+    await DatabaseLoader.redis(redis);
 
     // Notify that the server is up and running
     write_to_logs(

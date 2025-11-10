@@ -4,16 +4,26 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
-  
-  let sidebarOpen = false;
+  import { authStore } from '../utils/authStore.svelte';
+  import { browser } from '$app/environment';
+
+  let sidebarOpen = $state(false);
   let darkMode = writable(false);
-  
+  let showUserMenu = $state(false);
+
   onMount(() => {
-    // Set sidebar open by default on desktop
-    if (window.innerWidth >= 768) {
-      sidebarOpen = true;
+    // Restore sidebar state from localStorage first
+    const savedSidebarState = localStorage.getItem('sidebarOpen');
+    if (savedSidebarState !== null) {
+      sidebarOpen = savedSidebarState === 'true';
+    } else {
+      // Set sidebar open by default on desktop if no saved state
+      if (window.innerWidth >= 768) {
+        sidebarOpen = true;
+        localStorage.setItem('sidebarOpen', 'true');
+      }
     }
-    
+
     // Check for saved theme preference
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -21,7 +31,7 @@
       document.documentElement.classList.add('dark');
     }
   });
-  
+
   const toggleDarkMode = () => {
     darkMode.update(v => !v);
     const isDark = !document.documentElement.classList.contains('dark');
@@ -33,45 +43,94 @@
       localStorage.setItem('theme', 'light');
     }
   };
-  
+
   const toggleSidebar = () => {
     sidebarOpen = !sidebarOpen;
+    // Save sidebar state to localStorage
+    if (browser) {
+      localStorage.setItem('sidebarOpen', String(sidebarOpen));
+    }
   };
-  
+
   const closeSidebar = () => {
     sidebarOpen = false;
+    if (browser) {
+      localStorage.setItem('sidebarOpen', 'false');
+    }
   };
-  
+
+  const toggleUserMenu = () => {
+    showUserMenu = !showUserMenu;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authStore.signOut();
+      showUserMenu = false;
+      goto('/auth');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   const navItems = [
     { name: 'Dashboard', path: '/', icon: 'LayoutDashboard' },
     { name: 'Import Set', path: '/scrape', icon: 'BookOpen' },
-    { name: 'History', path: '/history', icon: 'History' },
-    { name: 'Settings', path: '/settings', icon: 'Settings' }
+	{ name: "Vocab Sets", path: "/vocab-sets", icon: "BookOpen" },
+    { name: 'Statistics', path: '/statistics', icon: 'History' },
+	{ name: "Grammar", path: "/grammar", icon: "BookOpen"},
+	{ name: 'Settings', path: '/settings', icon: 'Settings' },
   ];
-  
+
   const handleNavClick = (path: string) => {
     goto(path);
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 768 && sidebarOpen) {
       closeSidebar();
     }
   };
-  
+
   let isDark = false;
   darkMode.subscribe(value => {
     isDark = value;
   });
+
+  // Redirect to auth if not authenticated
+  $effect(() => {
+    if (!authStore.loading && !authStore.isAuthenticated() && !$page.url.pathname.startsWith('/auth')) {
+      goto('/auth');
+    }
+  });
+
+  // Check if we should show layout (hide on auth pages)
+  let isAuthPage = $derived($page.url.pathname.startsWith('/auth'));
+
+  // Close user menu when clicking outside
+  function handleClickOutside(event: MouseEvent) {
+    if (showUserMenu) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.user-menu-container')) {
+        showUserMenu = false;
+      }
+    }
+  }
+
+  function handleResize() {
+    if (window.innerWidth < 768 && sidebarOpen) {
+      sidebarOpen = false;
+      if (browser) {
+        localStorage.setItem('sidebarOpen', 'false');
+      }
+    }
+  }
 </script>
 
 <svelte:head>
   <!-- No external CSS needed, we'll use SVG icons directly -->
 </svelte:head>
 
-<svelte:window on:resize={() => {
-  if (window.innerWidth < 768) {
-    sidebarOpen = false;
-  }
-}} />
+<svelte:window on:resize={handleResize} on:click={handleClickOutside} />
 
+{#if !isAuthPage}
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
   <!-- Navbar -->
   <nav class="bg-white dark:bg-gray-800 shadow-md fixed top-0 left-0 right-0 z-50 transition-colors duration-300 border-b border-gray-200 dark:border-gray-700">
@@ -133,11 +192,44 @@
           </svg>
           <span class="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full"></span>
         </button>
-        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        </div>
+
+        <!-- User menu -->
+        {#if authStore.isAuthenticated()}
+          <div class="relative user-menu-container">
+            <button
+              on:click={toggleUserMenu}
+              class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-shadow"
+              aria-label="User menu"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+
+            {#if showUserMenu}
+              <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                <div class="p-3 border-b border-gray-200 dark:border-gray-700">
+                  <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {authStore.user?.email || 'user'}
+                  </p>
+                </div>
+                <button
+                  on:click={handleLogout}
+                  class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <button
+            on:click={() => goto('/auth')}
+            class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all text-sm font-medium shadow-md hover:shadow-lg"
+          >
+            Sign In
+          </button>
+        {/if}
       </div>
     </div>
   </nav>
@@ -221,6 +313,10 @@
     </main>
   </div>
 </div>
+{:else}
+  <!-- Auth pages render without navbar/sidebar -->
+  <slot />
+{/if}
 
 <style>
   :global(body) {

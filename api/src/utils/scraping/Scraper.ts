@@ -6,7 +6,12 @@ interface QuizletTerm {
   definition: string;
 }
 
-export async function scrapeQuizlet(url: string): Promise<QuizletTerm[]> {
+interface QuizletData {
+  title: string;
+  terms: QuizletTerm[];
+}
+
+export async function scrapeQuizlet(url: string): Promise<QuizletData> {
   let browser: Browser | null = null;
   let page: Page | null = null;
   
@@ -73,21 +78,49 @@ export async function scrapeQuizlet(url: string): Promise<QuizletTerm[]> {
       }
     }
     
-    // Extract all terms from the page
-    const terms = await page.evaluate(() => {
+    // Extract title and all terms from the page
+    const quizletData = await page.evaluate(() => {
       const results: Array<{ term: string; definition: string }> = [];
       const elements = document.querySelectorAll('[class*="TermText"]');
-      
+
+      // Extract the title from the page with extensive debugging
+      let title = 'Untitled Set';
+
+      // Try multiple selectors and log what we find
+      const selectors = [
+        'h1[class*="UIHeading"]',
+        'h1',
+        '[class*="SetTitle"]',
+        '[class*="UITitle"]',
+        'span[class*="UIHeading"]',
+        'div[class*="SetPage-title"]',
+        '[data-testid="SetPageTitle"]'
+      ];
+
+      let foundTitle = false;
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element && element.textContent && element.textContent.trim()) {
+          console.log(`Found title with selector "${selector}": "${element.textContent.trim()}"`);
+          if (!foundTitle) {
+            title = element.textContent.trim();
+            foundTitle = true;
+          }
+        }
+      }
+
+      console.log(`Final title selected: "${title}"`);
+
       if (elements.length > 0) {
         const textArray: string[] = [];
-        
+
         elements.forEach((el) => {
           const text = el.textContent?.trim();
           if (text) {
             textArray.push(text);
           }
         });
-        
+
         // Pair them up - terms and definitions alternate
         for (let i = 0; i < textArray.length - 1; i += 2) {
           if (textArray[i] && textArray[i + 1]) {
@@ -98,11 +131,14 @@ export async function scrapeQuizlet(url: string): Promise<QuizletTerm[]> {
           }
         }
       }
-      
-      return results;
+
+      return { title, terms: results };
     });
 
-    return terms;
+    console.log(`Scraped title from Quizlet: "${quizletData.title}"`);
+    console.log(`Scraped ${quizletData.terms.length} terms`);
+
+    return quizletData;
     
   } catch (error) {
     throw error;

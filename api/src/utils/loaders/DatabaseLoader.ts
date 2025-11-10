@@ -99,9 +99,24 @@ export function getDatabaseCredentials(database: string) {
                     credentials = config.database[database].dev;
                     break;
             }
+            break;
+
+        case "supabase":
+
+            switch (arg) {
+                case "prod":
+                    credentials = config.database[database].prod;
+                    break;
+                case "dev":
+                    credentials = config.database[database].dev;
+                    break;
+            }
+            break;
     }
 
-    if (credentials.url) {
+    // For non-Supabase databases, if there's a URL, use only that
+    // Supabase needs all three fields (url, anon_key, service_role_key)
+    if (credentials.url && database !== 'supabase') {
         credentials = {
             url: credentials.url
         };

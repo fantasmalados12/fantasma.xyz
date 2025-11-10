@@ -17,24 +17,24 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid Quizlet URL' });
     }
 
-    const terms = await scrapeQuizlet(url);
+    const quizletData = await scrapeQuizlet(url);
 
-    if (terms.length === 0) {
-      return res.status(404).json({ 
-        error: 'No terms found. The set might be private or the page structure has changed.' 
+    if (quizletData.terms.length === 0) {
+      return res.status(404).json({
+        error: 'No terms found. The set might be private or the page structure has changed.'
       });
     }
 
     // const parser = new Parser({ fields: ['term', 'definition'] });
-    // const csv = parser.parse(terms);
+    // const csv = parser.parse(quizletData.terms);
 
     // res.header('Content-Type', 'text/csv');
     // res.attachment('quizlet-export.csv');
     // res.send(csv);
 
-    const vocabStats = generateVocabStats(terms);
+    const vocabStats = generateVocabStats(quizletData.terms);
 
-    res.json({ vocabStats});
+    res.json({ vocabStats, title: quizletData.title });
 
   } catch (error) {
     res.status(500).json({ 

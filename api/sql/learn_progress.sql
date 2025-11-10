@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS learn_progress (
+    id SERIAL PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    vocab_set_id INTEGER NOT NULL,
+    shuffled_terms TEXT NOT NULL,
+    current_index INTEGER DEFAULT 0,
+    answered_terms TEXT DEFAULT '[]',
+    correct_answers INTEGER DEFAULT 0,
+    incorrect_answers INTEGER DEFAULT 0,
+    incorrect_terms TEXT DEFAULT '[]',
+    term_confidence TEXT DEFAULT '{}',
+    study_mode TEXT DEFAULT 'term-to-definition',
+    question_type_preference TEXT DEFAULT 'mixed',
+    selected_pos TEXT DEFAULT '["all"]',
+    is_retrying BOOLEAN DEFAULT FALSE,
+    retry_attempt INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(account_id, vocab_set_id)
+);
