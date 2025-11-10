@@ -46,9 +46,8 @@ WORKDIR /app
 
 # Copy built files and dependencies
 COPY --from=builder /app/package*.json ./
-# COPY --from=builder /app/build ./build
+COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.svelte-kit ./build
 
 # Expose port (change if needed)
 EXPOSE 3002
