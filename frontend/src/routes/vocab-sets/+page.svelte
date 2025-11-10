@@ -49,16 +49,16 @@
 
 </script>
 
-<div class="space-y-8">
+<div class="space-y-6 sm:space-y-8">
     <!-- Header Section -->
-    <div class="relative overflow-hidden bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-8 text-white shadow-2xl">
+    <div class="relative overflow-hidden bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 text-white shadow-2xl">
         <div class="relative z-10">
-            <h1 class="text-4xl md:text-5xl font-black mb-3 tracking-tight">Vocabulary Sets</h1>
-            <p class="text-purple-100 text-lg">Master your vocabulary, one set at a time</p>
-            <div class="mt-6 flex items-center gap-4">
-                <div class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/30">
-                    <span class="text-2xl font-bold">{vocabSets.length}</span>
-                    <span class="text-purple-100 ml-2">Total Sets</span>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-2 sm:mb-3 tracking-tight">Vocabulary Sets</h1>
+            <p class="text-purple-100 text-sm sm:text-base md:text-lg">Master your vocabulary, one set at a time</p>
+            <div class="mt-4 sm:mt-6 flex items-center gap-3 sm:gap-4">
+                <div class="bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-white/30">
+                    <span class="text-lg sm:text-xl md:text-2xl font-bold">{vocabSets.length}</span>
+                    <span class="text-purple-100 ml-1 sm:ml-2 text-sm sm:text-base">Total Sets</span>
                 </div>
             </div>
         </div>
@@ -69,60 +69,60 @@
 
     {#if loading}
         <!-- Loading State -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {#each Array(6) as _}
-                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 animate-pulse">
-                    <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded-lg w-3/4 mb-4"></div>
-                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-6"></div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 animate-pulse">
+                    <div class="h-5 sm:h-6 bg-gray-200 dark:bg-gray-700 rounded-lg w-3/4 mb-3 sm:mb-4"></div>
+                    <div class="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4 sm:mb-6"></div>
                     <div class="flex gap-2">
-                        <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-full"></div>
+                        <div class="h-8 sm:h-10 bg-gray-200 dark:bg-gray-700 rounded-lg w-full"></div>
                     </div>
                 </div>
             {/each}
         </div>
     {:else if vocabSets.length === 0}
         <!-- Empty State -->
-        <div class="text-center py-20">
-            <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl shadow-xl mb-6 transform rotate-12">
-                <span class="text-5xl transform -rotate-12">📚</span>
+        <div class="text-center py-12 sm:py-20">
+            <div class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl sm:rounded-3xl shadow-xl mb-4 sm:mb-6 transform rotate-12">
+                <span class="text-3xl sm:text-4xl md:text-5xl transform -rotate-12">📚</span>
             </div>
-            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">No Vocabulary Sets Yet</h2>
-            <p class="text-gray-600 dark:text-gray-400 text-lg mb-8">Create your first vocab set to start learning!</p>
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">No Vocabulary Sets Yet</h2>
+            <p class="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 mb-6 sm:mb-8 px-4">Create your first vocab set to start learning!</p>
             <button
                 on:click={() => goto('/scrape')}
-                class="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                class="px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
             >
                 Create Your First Set
             </button>
         </div>
     {:else}
         <!-- Vocab Sets Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {#each vocabSets as set, index}
                 <div
                     on:click={() => goto(`/vocab-sets/${set.id}`)}
-                    class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer"
+                    class="group relative bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer"
                 >
                     <!-- Gradient Header -->
-                    <div class="h-32 bg-gradient-to-br {getGradient(index)} relative overflow-hidden">
+                    <div class="h-24 sm:h-32 bg-gradient-to-br {getGradient(index)} relative overflow-hidden">
                         <div class="absolute inset-0 bg-black/10"></div>
-                        <div class="absolute top-4 right-4 bg-white/30 backdrop-blur-sm px-3 py-1 rounded-full border border-white/50">
-                            <span class="text-white font-bold text-sm">{getTermCount(set)} terms</span>
+                        <div class="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white/30 backdrop-blur-sm px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-white/50">
+                            <span class="text-white font-bold text-xs sm:text-sm">{getTermCount(set)} terms</span>
                         </div>
                         <!-- Decorative pattern -->
                         <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/20 to-transparent"></div>
                     </div>
 
                     <!-- Content -->
-                    <div class="p-6">
-                        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                    <div class="p-4 sm:p-6">
+                        <h2 class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                             {set.title}
                         </h2>
 
                         <!-- Stats Bar -->
-                        <div class="flex items-center gap-4 mb-6 text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             <div class="flex items-center gap-1">
-                                <span class="text-lg">📖</span>
+                                <span class="text-base sm:text-lg">📖</span>
                                 <span>{getTermCount(set)} words</span>
                             </div>
                         </div>
@@ -131,16 +131,16 @@
                         <div class="flex gap-2">
                             <button
                                 on:click={(e) => { e.stopPropagation(); goto(`/learn/${set.id}`); }}
-                                class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
+                                class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-1 sm:gap-2"
                             >
-                                <span class="text-lg">🎯</span>
+                                <span class="text-base sm:text-lg">🎯</span>
                                 <span>Learn</span>
                             </button>
                             <button
                                 on:click={(e) => { e.stopPropagation(); goto(`/vocab-sets/${set.id}`); }}
-                                class="px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition-all duration-200 hover:shadow-md"
+                                class="px-3 py-2 sm:px-4 sm:py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg sm:rounded-xl transition-all duration-200 hover:shadow-md"
                             >
-                                <span class="text-lg">👁️</span>
+                                <span class="text-base sm:text-lg">👁️</span>
                             </button>
                         </div>
                     </div>
@@ -154,7 +154,7 @@
         <!-- Create New Set FAB -->
         <button
             on:click={() => goto('/scrape')}
-            class="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full shadow-2xl hover:shadow-purple-500/50 transform hover:scale-110 transition-all duration-200 flex items-center justify-center text-3xl z-50"
+            class="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full shadow-2xl hover:shadow-purple-500/50 transform hover:scale-110 transition-all duration-200 flex items-center justify-center text-2xl sm:text-3xl z-50"
             title="Create New Set"
         >
             <span>+</span>

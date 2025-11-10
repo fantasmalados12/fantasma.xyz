@@ -103,11 +103,11 @@
   const handleNav = (path: string) => { goto(path) }
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4 sm:space-y-6">
   <!-- Header -->
   <div>
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Dashboard</h1>
-    <p class="text-gray-600 dark:text-gray-400">Welcome back! Here's what's happening with your scrapes.</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">Dashboard</h1>
+    <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Welcome back! Here's what's happening with your scrapes.</p>
   </div>
   
   <!-- Stats Grid
@@ -155,54 +155,54 @@
   </div> -->
   
   <!-- Quick Actions -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-    <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+    <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Quick Actions</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
       {#each quickActions as action}
-        <button on:click={() => { handleNav(action.path) }} class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+        <button on:click={() => { handleNav(action.path) }} class="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
           {#if action.icon === 'plus'}
-            <svg class="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
           {:else if action.icon === 'clock'}
-            <svg class="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           {:else if action.icon === 'download'}
-            <svg class="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           {/if}
-          <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">{action.name}</span>
+          <span class="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">{action.name}</span>
         </button>
       {/each}
     </div>
   </div>
   
   <!-- Recent Activity -->
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-    <div class="flex items-center justify-between mb-6">
-      <h2 class="text-xl font-bold text-gray-900 dark:text-white">Recent Activity</h2>
-      <button class="text-sm font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between mb-4 sm:mb-6">
+      <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Recent Activity</h2>
+      <button class="text-xs sm:text-sm font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300">
         View All
       </button>
     </div>
-    <div class="space-y-4">
+    <div class="space-y-3 sm:space-y-4">
       {#each recentSets as activity}
-        <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-          <div class="flex items-center gap-4">
-            <!-- <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+        <div class="flex items-center justify-between p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <div class="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <!-- <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
               {activity.terms}
             </div> -->
-            <div>
-              <p class="font-medium text-gray-900 dark:text-white">{activity.title}</p>
-              <!-- <p class="text-sm text-gray-500 dark:text-gray-400">{activity.terms} terms extracted</p> -->
+            <div class="min-w-0 flex-1">
+              <p class="font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate">{activity.title}</p>
+              <!-- <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{activity.terms} terms extracted</p> -->
             </div>
           </div>
-          <div class="flex items-center gap-4">
-            <span class="text-sm text-gray-500 dark:text-gray-400">{activity.days_since_update} days ago</span>
+          <div class="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+            <span class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">{activity.days_since_update} days ago</span>
             <div class="flex items-center gap-1 text-green-600 dark:text-green-400">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
             </div>

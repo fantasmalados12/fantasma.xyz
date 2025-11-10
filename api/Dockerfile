@@ -28,7 +28,7 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install runtime dependencies for canvas
+# Install runtime dependencies for canvas and Chromium for Puppeteer
 RUN apt-get update && apt-get install -y \
     libcairo2 \
     libpango-1.0-0 \
@@ -38,7 +38,20 @@ RUN apt-get update && apt-get install -y \
     libharfbuzz0b \
     libfontconfig1 \
     libfreetype6 \
+    chromium \
+    fonts-liberation \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libgbm1 \
     && rm -rf /var/lib/apt/lists/*
+
+# Set Puppeteer to use the installed Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    CHROME_PATH=/usr/bin/chromium
 
 # Copy built files from the previous stage
 COPY --from=build /app .

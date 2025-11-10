@@ -259,18 +259,18 @@
 
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4 sm:space-y-6">
     {#if vocabSet}
         <!-- Header with title, term count, and action buttons -->
-        <div class="flex items-start justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">{vocabSet.title}</h1>
-                <p class="text-gray-600 dark:text-gray-400">Terms: {JSON.parse(vocabSet.terms).length}</p>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div class="min-w-0 flex-1">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 truncate">{vocabSet.title}</h1>
+                <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Terms: {JSON.parse(vocabSet.terms).length}</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
                     on:click={() => goto(`/learn/${setId}`)}
-                    class="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-purple-500 bg-purple-500 hover:bg-purple-600 hover:border-purple-600 transition-all"
+                    class="flex items-center justify-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border-2 border-purple-500 bg-purple-500 hover:bg-purple-600 hover:border-purple-600 transition-all flex-1 sm:flex-none"
                 >
                     <span class="font-medium text-white">
                         Learn
@@ -278,7 +278,7 @@
                 </button>
                 <button
                     on:click={updateVocabSet}
-                    class="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+                    class="flex items-center justify-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group flex-1 sm:flex-none"
                 >
                     <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                         Update
@@ -286,7 +286,7 @@
                 </button>
                 <button
                     on:click={showDeletePopup}
-                    class="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-300 dark:border-red-600 hover:border-red-500 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group"
+                    class="flex items-center justify-center gap-1 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border-2 border-red-300 dark:border-red-600 hover:border-red-500 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group flex-1 sm:flex-none"
                 >
                     <span class="font-medium text-red-700 dark:text-red-300 group-hover:text-red-600 dark:group-hover:text-red-400">
                         Delete
@@ -297,73 +297,73 @@
 
         <!-- Learning Stats Section -->
         {#if !loadingStats && stats}
-        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl shadow-lg p-6 border-2 border-purple-200 dark:border-purple-700">
+        <div class="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl shadow-lg p-4 sm:p-6 border-2 border-purple-200 dark:border-purple-700">
             <button
                 on:click={() => learningStatsCollapsed = !learningStatsCollapsed}
-                class="w-full flex items-center justify-between mb-6 hover:opacity-80 transition-opacity"
+                class="w-full flex items-center justify-between mb-4 sm:mb-6 hover:opacity-80 transition-opacity"
             >
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <h2 class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <span>📊</span> Learning Statistics
                 </h2>
-                <span class="text-2xl text-gray-600 dark:text-gray-400 transform transition-transform duration-200" style="transform: rotate({learningStatsCollapsed ? -90 : 0}deg)">
+                <span class="text-xl sm:text-2xl text-gray-600 dark:text-gray-400 transform transition-transform duration-200" style="transform: rotate({learningStatsCollapsed ? -90 : 0}deg)">
                     ▼
                 </span>
             </button>
 
             {#if !learningStatsCollapsed}
             <!-- Key Stats Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-purple-200 dark:border-purple-700">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Sessions</p>
-                    <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.total_sessions}</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-purple-200 dark:border-purple-700">
+                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Total Sessions</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.total_sessions}</p>
                 </div>
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-green-200 dark:border-green-700">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Average Accuracy</p>
-                    <p class="text-3xl font-bold text-green-600 dark:text-green-400">{stats.average_accuracy}%</p>
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-green-200 dark:border-green-700">
+                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Avg Accuracy</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">{stats.average_accuracy}%</p>
                 </div>
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-blue-200 dark:border-blue-700">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Best Score</p>
-                    <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.best_accuracy}%</p>
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-blue-200 dark:border-blue-700">
+                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Best Score</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.best_accuracy}%</p>
                 </div>
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-amber-200 dark:border-amber-700">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Study Time</p>
-                    <p class="text-3xl font-bold text-amber-600 dark:text-amber-400">{Math.floor(stats.total_study_time / 60)}m</p>
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border border-amber-200 dark:border-amber-700">
+                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Study Time</p>
+                    <p class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">{Math.floor(stats.total_study_time / 60)}m</p>
                 </div>
             </div>
 
             <!-- Detailed Stats Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <!-- Performance Breakdown -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm">
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-5 shadow-sm">
+                    <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
                         <span>🎯</span> Performance Breakdown
                     </h3>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                            <span class="text-gray-700 dark:text-gray-300">Total Correct</span>
-                            <span class="font-bold text-green-600 dark:text-green-400">{stats.total_correct}</span>
+                    <div class="space-y-2 sm:space-y-3">
+                        <div class="flex justify-between items-center p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <span class="text-sm sm:text-base text-gray-700 dark:text-gray-300">Total Correct</span>
+                            <span class="text-sm sm:text-base font-bold text-green-600 dark:text-green-400">{stats.total_correct}</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                            <span class="text-gray-700 dark:text-gray-300">Total Incorrect</span>
-                            <span class="font-bold text-red-600 dark:text-red-400">{stats.total_incorrect}</span>
+                        <div class="flex justify-between items-center p-2 sm:p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                            <span class="text-sm sm:text-base text-gray-700 dark:text-gray-300">Total Incorrect</span>
+                            <span class="text-sm sm:text-base font-bold text-red-600 dark:text-red-400">{stats.total_incorrect}</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                            <span class="text-gray-700 dark:text-gray-300">Total Questions</span>
-                            <span class="font-bold text-purple-600 dark:text-purple-400">{stats.total_questions_answered}</span>
+                        <div class="flex justify-between items-center p-2 sm:p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                            <span class="text-sm sm:text-base text-gray-700 dark:text-gray-300">Total Questions</span>
+                            <span class="text-sm sm:text-base font-bold text-purple-600 dark:text-purple-400">{stats.total_questions_answered}</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Study Modes -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm">
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-5 shadow-sm">
+                    <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
                         <span>📚</span> Study Mode Usage
                     </h3>
-                    <div class="space-y-3">
+                    <div class="space-y-2 sm:space-y-3">
                         {#each Object.entries(stats.study_mode_breakdown) as [mode, count]}
-                        <div class="flex justify-between items-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                            <span class="text-gray-700 dark:text-gray-300 capitalize">{mode.replace('-', ' → ')}</span>
-                            <span class="font-bold text-indigo-600 dark:text-indigo-400">{count} sessions</span>
+                        <div class="flex justify-between items-center p-2 sm:p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                            <span class="text-sm sm:text-base text-gray-700 dark:text-gray-300 capitalize">{mode.replace('-', ' → ')}</span>
+                            <span class="text-sm sm:text-base font-bold text-indigo-600 dark:text-indigo-400">{count} sessions</span>
                         </div>
                         {/each}
                     </div>
@@ -450,79 +450,79 @@
         {/if}
 
         {#if vocabStats}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
             <button
                 on:click={() => vocabStatsCollapsed = !vocabStatsCollapsed}
-                class="w-full flex items-center justify-between mb-4 hover:opacity-80 transition-opacity"
+                class="w-full flex items-center justify-between mb-3 sm:mb-4 hover:opacity-80 transition-opacity"
             >
-                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Vocab Statistics</h2>
-                <span class="text-2xl text-gray-600 dark:text-gray-400 transform transition-transform duration-200" style="transform: rotate({vocabStatsCollapsed ? -90 : 0}deg)">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Vocab Statistics</h2>
+                <span class="text-xl sm:text-2xl text-gray-600 dark:text-gray-400 transform transition-transform duration-200" style="transform: rotate({vocabStatsCollapsed ? -90 : 0}deg)">
                     ▼
                 </span>
             </button>
 
             {#if !vocabStatsCollapsed}
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Total Terms:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.totalTerms}</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Total Terms:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.totalTerms}</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Single Words:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.singleWordTerms} ({Math.round((vocabStats.singleWordTerms / vocabStats.totalTerms) * 100)}%)</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Single Words:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.singleWordTerms} ({Math.round((vocabStats.singleWordTerms / vocabStats.totalTerms) * 100)}%)</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Multiple Words:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.multiWordTerms} ({Math.round((vocabStats.multiWordTerms / vocabStats.totalTerms) * 100)}%)</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Multiple Words:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.multiWordTerms} ({Math.round((vocabStats.multiWordTerms / vocabStats.totalTerms) * 100)}%)</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Average Cognates:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.averageCognateScore}%</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Avg Cognates:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.averageCognateScore}%</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">High Cognates:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.highCognates}</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">High Cognates:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.highCognates}</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Low Cognates:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.lowCognates}</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Low Cognates:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.lowCognates}</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Verbs:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.verbs}</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Verbs:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.verbs}</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Nouns:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.nouns}</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Nouns:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.nouns}</p>
                 </div>
 
-                <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                    <p class="font-medium text-gray-900 dark:text-white">Adjectives:</p>
-                    <p class="font-medium text-purple-500">{vocabStats.adjectives}</p>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                    <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Adjectives:</p>
+                    <p class="text-sm sm:text-base font-medium text-purple-500">{vocabStats.adjectives}</p>
                 </div>
             </div>
             {/if}
         </div>
         {/if}
 
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between mb-6 w-full">
-    <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-        Extracted Terms ({vocabularySet.length} terms)
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 w-full">
+    <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+        Extracted Terms ({vocabularySet.length})
     </h2>
 
-    <div class="flex items-center gap-4">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
         <!-- Filter -->
         <div class="flex items-center gap-2">
-            <p class="font-medium text-gray-700 dark:text-gray-300">Filter by Category:</p>
-            <select bind:value={posFilter} class="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50">
+            <p class="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Filter:</p>
+            <select bind:value={posFilter} class="flex-1 sm:flex-none px-2 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50">
                 <option value="">All</option>
                 <option value="noun">Nouns</option>
                 <option value="verb">Verbs</option>
@@ -530,10 +530,10 @@
             </select>
         </div>
 
-        <!-- Add to Library -->
-        <button 
+        <!-- Add Images -->
+        <button
             on:click={addImages}
-        class="flex items-center gap-3 p-2 rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+        class="flex items-center justify-center gap-2 sm:gap-3 px-3 py-1.5 sm:p-2 text-sm sm:text-base rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
             <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                 Add Images
             </span>
@@ -544,78 +544,70 @@
 
         <!-- Paginated list -->
         {#each paginatedItems as term}
-            <div class="flex items-center justify-between p-4 rounded-lg transition-colors mb-2 {term.pos === 'verb' && irregularVerbs.get(term.term) ? 'bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700' : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'}">
-                <div class="flex justify-between items-center w-full">
-                    <!-- Left: Term info -->
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
-                            {#if imagesAddedToTerms.length > 0}
-                                {#if getImageFromTerm(term.term)}
-                                    <img src="{getImageFromTerm(term.term)}" alt="{term.term}" class="w-12 h-12 object-cover rounded-lg" />
-                                {/if}
-                                    <!-- {:else}
-                                <span>{ term.cognateScore }</span> -->
-                            {/if}
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg transition-colors mb-2 {term.pos === 'verb' && irregularVerbs.get(term.term) ? 'bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700' : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'}">
+                <!-- Left: Term info -->
+                <div class="flex items-start sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                    {#if imagesAddedToTerms.length > 0 && getImageFromTerm(term.term)}
+                        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex-shrink-0">
+                            <img src="{getImageFromTerm(term.term)}" alt="{term.term}" class="w-full h-full object-cover rounded-lg shadow-lg" />
                         </div>
-                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
-                            <span>{ term.cognateScore }</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <p class="font-medium text-gray-900 dark:text-white">{ term.term }</p>
-                                    {#if term.pos === 'verb' && irregularVerbs.get(term.term)}
-                                        <span class="px-2 py-1 text-xs font-bold rounded-full bg-amber-500 text-white shadow-sm">
-                                            IRREGULAR
+                    {/if}
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
+                        <span class="text-sm sm:text-base">{ term.cognateScore }</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-1 sm:gap-2">
+                            <p class="font-medium text-sm sm:text-base text-gray-900 dark:text-white">{ term.term }</p>
+                            {#if term.pos === 'verb' && irregularVerbs.get(term.term)}
+                                <span class="px-1.5 py-0.5 sm:px-2 sm:py-1 text-xs font-bold rounded-full bg-amber-500 text-white shadow-sm">
+                                    IRREGULAR
                                         </span>
                                     {/if}
                                 </div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{ term.definition }</p>
-                            </div>
-                        </div>
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{ term.definition }</p>
+                    </div>
+                </div>
+
+                <!-- Right: POS and actions -->
+                <div class="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                    <div class="flex items-center gap-1 sm:gap-2">
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Cat:</p>
+                        <p class="text-xs sm:text-sm font-medium text-purple-500">{ term.pos }</p>
                     </div>
 
-                    <!-- Right: POS and Estimated Iterations -->
-                    <div class="flex items-center gap-6">
-                        <div class="flex items-center text-right gap-2">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Category:</p>
-                            <p class="font-medium text-purple-500">{ term.pos }</p>
-                        </div>
-
-                        <div class="flex items-center text-right gap-2">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Estimated Iterations:</p>
-                            <p class="font-medium text-purple-500">{ term.estimatedIterations }</p>
-                        </div>
-
-                        { #if term.pos === 'verb' }
-                            <button 
-                                on:click={() => togglePopup(term.term)}
-                                class="flex items-center gap-3 p-2 rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
-                            >
-                                <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
-                                    Conjugations
-                                </span>
-                            </button>
-                        {/if}
+                    <div class="flex items-center gap-1 sm:gap-2">
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Est:</p>
+                        <p class="text-xs sm:text-sm font-medium text-purple-500">{ term.estimatedIterations }</p>
                     </div>
+
+                    { #if term.pos === 'verb' }
+                        <button
+                            on:click={() => togglePopup(term.term)}
+                            class="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:p-2 text-xs sm:text-sm rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+                        >
+                            <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                                Conjugations
+                            </span>
+                        </button>
+                    {/if}
                 </div>
             </div>
         {/each}
 
         <!-- Pagination controls -->
-        <div class="flex justify-center gap-2 mt-4">
-            <button on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Prev</button>
+        <div class="flex flex-wrap justify-center gap-1 sm:gap-2 mt-4">
+            <button on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Prev</button>
 
             {#each Array(totalPages) as _, index}
                 <button
                     on:click={() => goToPage(index + 1)}
-                    class="px-3 py-1 rounded font-medium text-white {currentPage === index + 1 ? 'bg-purple-500' : 'bg-gray-500 dark:text-white'}"
+                    class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded font-medium text-white {currentPage === index + 1 ? 'bg-purple-500' : 'bg-gray-500 dark:text-white'}"
                 >
                     {index + 1}
                 </button>
             {/each}
 
-            <button on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Next</button>
+            <button on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Next</button>
         </div>
     </div>
 

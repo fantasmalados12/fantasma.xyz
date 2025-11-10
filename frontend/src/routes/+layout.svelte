@@ -128,74 +128,76 @@
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
   <!-- Navbar -->
   <nav class="bg-white dark:bg-gray-800 shadow-md fixed top-0 left-0 right-0 z-50 transition-colors duration-300 border-b border-gray-200 dark:border-gray-700">
-    <div class="px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-2 sm:gap-4">
-        <button 
+    <div class="px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+      <div class="flex items-center gap-1 sm:gap-2 md:gap-4 min-w-0 flex-1">
+        <button
           on:click={toggleSidebar}
-          class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          class="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
           aria-label="Toggle menu"
         >
-          <svg class="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+          <div class="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
           </div>
-          <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent truncate">
+          <h1 class="text-sm sm:text-lg md:text-xl font-bold bg-gradient-to-r from-purple-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent truncate">
             fantasma.xyz
           </h1>
         </div>
       </div>
       
-      <div class="flex items-center gap-2 sm:gap-4">
+      <div class="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
         <!-- Ghost-themed Dark Mode Toggle -->
-        <button 
+        <button
           on:click={toggleDarkMode}
-          class="relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+          class="relative w-12 h-6 sm:w-16 sm:h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 flex-shrink-0"
           class:bg-gradient-to-r={isDark}
           class:from-indigo-900={isDark}
           class:to-purple-900={isDark}
           class:bg-gray-200={!isDark}
           aria-label="Toggle dark mode"
         >
-          <div 
-            class="absolute top-1 transition-all duration-300 w-6 h-6 rounded-full flex items-center justify-center shadow-lg bg-white dark:bg-gray-800"
+          <div
+            class="absolute top-0.5 sm:top-1 transition-all duration-300 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shadow-lg bg-white dark:bg-gray-800"
+            class:left-0.5={!isDark}
             class:left-1={!isDark}
-            class:left-9={isDark}
+            class:left-6={isDark}
+            class:sm:left-9={isDark}
           >
             {#if isDark}
-              <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-3 h-3 sm:w-4 sm:h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
               </svg>
             {:else}
-              <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             {/if}
           </div>
         </button>
-        
-        <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative" aria-label="Notifications">
-          <svg class="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+        <button class="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative hidden sm:block flex-shrink-0" aria-label="Notifications">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
-          <span class="absolute top-1 right-1 w-2 h-2 bg-purple-500 rounded-full"></span>
+          <span class="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-purple-500 rounded-full"></span>
         </button>
 
         <!-- User menu -->
         {#if authStore.isAuthenticated()}
-          <div class="relative user-menu-container">
+          <div class="relative user-menu-container flex-shrink-0">
             <button
               on:click={toggleUserMenu}
-              class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-shadow"
+              class="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-shadow"
               aria-label="User menu"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </button>
@@ -219,7 +221,7 @@
         {:else}
           <button
             on:click={() => goto('/auth')}
-            class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all text-sm font-medium shadow-md hover:shadow-lg"
+            class="px-2 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all text-xs sm:text-sm font-medium shadow-md hover:shadow-lg"
           >
             Sign In
           </button>
@@ -300,8 +302,8 @@
     </aside>
 
     <!-- Main Content -->
-    <main 
-      class="flex-1 p-4 sm:p-6 md:p-8 w-full min-h-[calc(100vh-4rem)]"
+    <main
+      class="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 w-full min-h-[calc(100vh-4rem)]"
     >
       <slot />
     </main>

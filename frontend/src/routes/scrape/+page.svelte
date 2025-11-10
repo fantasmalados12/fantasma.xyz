@@ -101,28 +101,28 @@
 
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4 sm:space-y-6">
   <!-- Header -->
   <div>
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Import Set</h1>
-    <p class="text-gray-600 dark:text-gray-400">Lets get you started importing more vocabulary!</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">Import Set</h1>
+    <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Lets get you started importing more vocabulary!</p>
   </div>
 
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-    <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Quizlet Extractor</h2>
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+    <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Quizlet Extractor</h2>
 
-    <div class="flex gap-3">
+    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
       <input
         type="url"
         bind:value={url}
         placeholder="Enter Quizlet link..."
-        class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 
-         bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 
+        class="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border border-gray-300 dark:border-gray-600
+         bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500
          dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50
          focus:border-transparent"
       />
-        <button 
-            class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+        <button
+            class="flex items-center justify-center gap-2 sm:gap-3 px-4 py-2 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group flex-shrink-0"
             on:click={async () => {
                 loading = true;
                 try {
@@ -154,73 +154,73 @@
     {#if vocabularySet && !loading}
 
     <!-- Display the set title -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">{setTitle}</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{setTitle}</h2>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Vocab Statistics</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Total Terms:</p>
-                <p class="font-medium text-purple-500">{vocabResults.totalTerms}</p>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Vocab Statistics</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Total Terms:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{vocabResults.totalTerms}</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Single Words:</p>
-                <p class="font-medium text-purple-500">{vocabResults.singleWordTerms} ({Math.round((vocabResults.singleWordTerms / vocabResults.totalTerms) * 100)}%)</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Single Words:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{vocabResults.singleWordTerms} ({Math.round((vocabResults.singleWordTerms / vocabResults.totalTerms) * 100)}%)</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Multiple Words:</p>
-                <p class="font-medium text-purple-500">{vocabResults.multiWordTerms} ({Math.round((vocabResults.multiWordTerms / vocabResults.totalTerms) * 100)}%)</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Multiple Words:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{vocabResults.multiWordTerms} ({Math.round((vocabResults.multiWordTerms / vocabResults.totalTerms) * 100)}%)</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Average Cognates:</p>
-                <p class="font-medium text-purple-500">{ vocabResults.averageCognateScore }%</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Average Cognates:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{ vocabResults.averageCognateScore }%</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">High Cognates:</p>
-                <p class="font-medium text-purple-500">{ vocabResults.highCognates }</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">High Cognates:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{ vocabResults.highCognates }</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Low Cognates:</p>
-                <p class="font-medium text-purple-500">{ vocabResults.lowCognates }</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Low Cognates:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{ vocabResults.lowCognates }</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Verbs:</p>
-                <p class="font-medium text-purple-500">{ vocabResults.verbs }</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Verbs:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{ vocabResults.verbs }</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Nouns:</p>
-                <p class="font-medium text-purple-500">{ vocabResults.nouns }</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Nouns:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{ vocabResults.nouns }</p>
             </div>
 
-            <div class="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
-                <p class="font-medium text-gray-900 dark:text-white">Adjectives:</p>
-                <p class="font-medium text-purple-500">{ vocabResults.adjectives }</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+                <p class="text-sm sm:text-base font-medium text-gray-900 dark:text-white">Adjectives:</p>
+                <p class="text-sm sm:text-base font-medium text-purple-500">{ vocabResults.adjectives }</p>
             </div>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between mb-6 w-full">
-    <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-        Extracted Terms ({vocabularySet.length} terms)
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 w-full">
+    <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+        Extracted Terms ({vocabularySet.length})
     </h2>
 
-    <div class="flex items-center gap-4">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
         <!-- Filter -->
         <div class="flex items-center gap-2">
-            <p class="font-medium text-gray-700 dark:text-gray-300">Filter by Category:</p>
-            <select bind:value={posFilter} class="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50">
+            <p class="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Filter:</p>
+            <select bind:value={posFilter} class="flex-1 sm:flex-none px-2 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50">
                 <option value="">All</option>
                 <option value="noun">Nouns</option>
                 <option value="verb">Verbs</option>
@@ -229,9 +229,9 @@
         </div>
 
         <!-- Add to Library -->
-        <button 
+        <button
             on:click={addToLibrary}
-        class="flex items-center gap-3 p-2 rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+        class="flex items-center justify-center gap-2 sm:gap-3 px-3 py-1.5 sm:p-2 text-sm sm:text-base rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
             <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                 Add to Library
             </span>
@@ -242,60 +242,58 @@
 
         <!-- Paginated list -->
         {#each paginatedItems as term}
-            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-2">
-                <div class="flex justify-between items-center w-full">
-                    <!-- Left: Term info -->
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
-                            <span>{ term.cognateScore }</span>
-                        </div>
-                        <div>
-                            <p class="font-medium text-gray-900 dark:text-white">{ term.term }</p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">{ term.definition }</p>
-                        </div>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-2">
+                <!-- Left: Term info -->
+                <div class="flex items-start sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
+                        <span class="text-sm sm:text-base">{ term.cognateScore }</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate">{ term.term }</p>
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{ term.definition }</p>
+                    </div>
+                </div>
+
+                <!-- Right: POS and actions -->
+                <div class="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                    <div class="flex items-center gap-1 sm:gap-2">
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Cat:</p>
+                        <p class="text-xs sm:text-sm font-medium text-purple-500">{ term.pos }</p>
                     </div>
 
-                    <!-- Right: POS and Estimated Iterations -->
-                    <div class="flex items-center gap-6">
-                        <div class="flex items-center text-right gap-2">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Category:</p>
-                            <p class="font-medium text-purple-500">{ term.pos }</p>
-                        </div>
-
-                        <div class="flex items-center text-right gap-2">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Estimated Iterations:</p>
-                            <p class="font-medium text-purple-500">{ term.estimatedIterations }</p>
-                        </div>
-
-                        { #if term.pos === 'verb' }
-                            <button 
-                                on:click={() => togglePopup(term.term)}
-                                class="flex items-center gap-3 p-2 rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
-                            >
-                                <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
-                                    Conjugations
-                                </span>
-                            </button>
-                        {/if}
+                    <div class="flex items-center gap-1 sm:gap-2">
+                        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Est:</p>
+                        <p class="text-xs sm:text-sm font-medium text-purple-500">{ term.estimatedIterations }</p>
                     </div>
+
+                    { #if term.pos === 'verb' }
+                        <button
+                            on:click={() => togglePopup(term.term)}
+                            class="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:p-2 text-xs sm:text-sm rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+                        >
+                            <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                                Conjugations
+                            </span>
+                        </button>
+                    {/if}
                 </div>
             </div>
         {/each}
 
         <!-- Pagination controls -->
-        <div class="flex justify-center gap-2 mt-4">
-            <button on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Prev</button>
+        <div class="flex flex-wrap justify-center gap-1 sm:gap-2 mt-4">
+            <button on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Prev</button>
 
             {#each Array(totalPages) as _, index}
                 <button
                     on:click={() => goToPage(index + 1)}
-                    class="px-3 py-1 rounded font-medium text-white {currentPage === index + 1 ? 'bg-purple-500' : 'bg-gray-500 dark:text-white'}"
+                    class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded font-medium text-white {currentPage === index + 1 ? 'bg-purple-500' : 'bg-gray-500 dark:text-white'}"
                 >
                     {index + 1}
                 </button>
             {/each}
 
-            <button on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Next</button>
+            <button on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Next</button>
         </div>
     </div>
     {/if}
