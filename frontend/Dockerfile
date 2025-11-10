@@ -5,6 +5,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Create a directory for config files
+RUN mkdir -p /config
+
+# Copy all YAML files from the config directory and its subdirectories to /config/
+ADD config /config/
+
 # Copy package files first for caching
 COPY package*.json ./
 COPY pnpm-lock.yaml* yarn.lock* ./
