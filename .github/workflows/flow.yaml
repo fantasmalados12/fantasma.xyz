@@ -56,7 +56,7 @@ jobs:
           echo "Starting the docker containers"
           docker rm -f redis && docker run -d --restart always --net host -v redis-data:/bitnami/redis/data -e REDIS_PASSWORD=psqxreSPAivEkAMjBuduXMbZwtEEdZ -e DISABLE_COMMANDS=FLUSHDB,FLUSHALL,CONFIG,POST,Host --name redis ft-redis
           docker rm -f postgres && docker run -d --name postgres \
-            -v postgres-data:/var/lib/postgresql/data \
+            -v postgres-data:/var/lib/postgresql \
             -e POSTGRES_DB=dlilp \
             -e POSTGRES_USER=dlilp \
             -e POSTGRES_PASSWORD=EnytESVvNRMXHhVpzssXcpQUWcPnjE \
@@ -65,7 +65,7 @@ jobs:
             ft-postgres
           sleep 5
           docker rm -f api && docker run -d --restart always --net host --name api ft-api
-          docker rm -f frontend && docker run -d --restart always --net host --name bot ft-frontend
+          docker rm -f frontend && docker run -d --restart always --net host --name frontend ft-frontend
           docker rm -f proxy && docker run -d --restart always --net host --name proxy ft-proxy
           docker system prune --all --force 
 
