@@ -126,58 +126,180 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
     });
 
     // Navigate to the page
+    console.log('Navigating to URL...');
     await page.goto(url, {
-      waitUntil: 'networkidle0',
+      waitUntil: 'domcontentloaded',
       timeout: 90000
     });
 
+    // Take initial screenshot for debugging
+    console.log('Taking initial screenshot...');
+    const initialScreenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
+    console.log('\n=== INITIAL PAGE SCREENSHOT (Base64) ===');
+    console.log(initialScreenshot);
+    console.log('=== END SCREENSHOT ===\n');
+
     // Simulate mouse movement to appear more human-like
     await page.mouse.move(100, 100);
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
     await page.mouse.move(200, 200);
+    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 300));
 
-    // Check if we hit Cloudflare challenge and wait it out
+    // Check if we hit Cloudflare challenge and handle it
     let cloudflareDetected = false;
     let waitAttempts = 0;
-    const maxWaitAttempts = 24; // Wait up to ~120 seconds for Cloudflare
+    const maxWaitAttempts = 30; // Wait up to ~150 seconds for Cloudflare
 
     do {
       cloudflareDetected = await page.evaluate(() => {
         const title = document.title.toLowerCase();
         const bodyText = document.body.innerText.toLowerCase();
+        const html = document.documentElement.innerHTML.toLowerCase();
 
         // Check for Cloudflare challenge indicators
         return title.includes('one more step') ||
                title.includes('just a moment') ||
                title.includes('attention required') ||
                bodyText.includes('checking your browser') ||
-               (bodyText.includes('cloudflare') && bodyText.includes('checking'));
+               bodyText.includes('verify you are human') ||
+               bodyText.includes('enable javascript and cookies') ||
+               html.includes('cloudflare') ||
+               html.includes('cf-challenge') ||
+               html.includes('cf_chl_opt');
       });
 
       if (cloudflareDetected) {
-        console.log(`Cloudflare challenge detected, waiting... (attempt ${waitAttempts + 1}/${maxWaitAttempts})`);
+        console.log(`\n🛡️  Cloudflare challenge detected (attempt ${waitAttempts + 1}/${maxWaitAttempts})`);
 
-        // Simulate some mouse movement during the wait
-        await page.mouse.move(
-          Math.floor(Math.random() * 1000),
-          Math.floor(Math.random() * 800)
-        );
+        // Take screenshot of the challenge
+        const challengeScreenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
+        console.log('\n=== CLOUDFLARE CHALLENGE SCREENSHOT (Base64) ===');
+        console.log(challengeScreenshot);
+        console.log('=== END SCREENSHOT ===\n');
 
+        // Look for and click the "I'm not a robot" checkbox
+        console.log('Looking for challenge checkbox/button...');
+        const clickedChallenge = await page.evaluate(() => {
+          // Try to find various Cloudflare challenge elements
+          const selectors = [
+            'input[type="checkbox"]',
+            'iframe[src*="challenges.cloudflare.com"]',
+            'iframe[title*="widget"]',
+            '#cf-challenge-running',
+            '.cf-turnstile',
+            '[name="cf-turnstile-response"]',
+            'button[type="submit"]',
+            'input[value="Verify"]',
+            '.challenge-form button'
+          ];
+
+          for (const selector of selectors) {
+            const element = document.querySelector(selector) as HTMLElement;
+            if (element) {
+              console.log(`Found element with selector: ${selector}`);
+
+              // If it's an input checkbox, click it
+              if (element.tagName === 'INPUT' && (element as HTMLInputElement).type === 'checkbox') {
+                console.log('Clicking checkbox...');
+                element.click();
+                return true;
+              }
+
+              // If it's a button, click it
+              if (element.tagName === 'BUTTON') {
+                console.log('Clicking button...');
+                element.click();
+                return true;
+              }
+            }
+          }
+
+          return false;
+        });
+
+        // Try to find and interact with iframe-based challenges (like Turnstile)
+        const frames = page.frames();
+        console.log(`Found ${frames.length} frames on page`);
+
+        for (const frame of frames) {
+          try {
+            const frameUrl = frame.url();
+            console.log(`Checking frame: ${frameUrl}`);
+
+            if (frameUrl.includes('challenges.cloudflare.com') || frameUrl.includes('turnstile')) {
+              console.log('Found Cloudflare challenge iframe, attempting to interact...');
+
+              // Wait a bit for the iframe to load
+              await new Promise(resolve => setTimeout(resolve, 2000));
+
+              // Try to click inside the iframe
+              const clicked = await frame.evaluate(() => {
+                const checkbox = document.querySelector('input[type="checkbox"]');
+                const button = document.querySelector('button');
+
+                if (checkbox) {
+                  console.log('Clicking checkbox in iframe...');
+                  (checkbox as HTMLElement).click();
+                  return true;
+                }
+
+                if (button) {
+                  console.log('Clicking button in iframe...');
+                  (button as HTMLElement).click();
+                  return true;
+                }
+
+                // Try to click anywhere in the challenge box
+                const body = document.body;
+                if (body) {
+                  console.log('Clicking body in iframe...');
+                  body.click();
+                  return true;
+                }
+
+                return false;
+              }).catch(() => false);
+
+              if (clicked) {
+                console.log('Successfully clicked challenge in iframe');
+              }
+            }
+          } catch (e) {
+            // Frame might not be accessible, continue
+            console.log(`Could not interact with frame: ${e}`);
+          }
+        }
+
+        if (clickedChallenge) {
+          console.log('✅ Clicked challenge element');
+        } else {
+          console.log('⚠️  No clickable challenge element found');
+        }
+
+        // Simulate realistic mouse movement during the wait
+        const randomX = 300 + Math.floor(Math.random() * 700);
+        const randomY = 200 + Math.floor(Math.random() * 600);
+        await page.mouse.move(randomX, randomY);
+
+        // Wait before checking again
         await new Promise(resolve => setTimeout(resolve, 5000));
         waitAttempts++;
       }
     } while (cloudflareDetected && waitAttempts < maxWaitAttempts);
 
     if (cloudflareDetected) {
-      console.error('Failed to bypass Cloudflare after maximum wait time');
+      console.error('\n❌ Failed to bypass Cloudflare after maximum wait time');
 
-      // Take a screenshot for debugging if possible
-      try {
-        const screenshot = await page.screenshot({ encoding: 'base64' });
-        console.log('Screenshot taken (base64 length):', screenshot.length);
-      } catch (e) {
-        console.log('Could not take screenshot');
-      }
+      // Take final screenshot for debugging
+      const finalScreenshot = await page.screenshot({ encoding: 'base64', fullPage: true });
+      console.log('\n=== FINAL CLOUDFLARE CHALLENGE SCREENSHOT (Base64) ===');
+      console.log(finalScreenshot);
+      console.log('=== END SCREENSHOT ===\n');
+
+      throw new Error('Failed to bypass Cloudflare challenge');
     }
+
+    console.log('✅ Successfully passed Cloudflare challenge (if any)');
 
     // Additional wait for content to load with a more human-like delay
     await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
