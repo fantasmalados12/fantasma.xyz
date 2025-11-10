@@ -62,7 +62,7 @@ jobs:
             -e POSTGRES_PASSWORD=EnytESVvNRMXHhVpzssXcpQUWcPnjE \
             -p 5432:5432 \
             --restart always \
-            cn-postgres
+            ft-postgres
           sleep 5
           docker rm -f api && docker run -d --restart always --net host --name api ft-api
           docker rm -f frontend && docker run -d --restart always --net host --name bot ft-frontend
