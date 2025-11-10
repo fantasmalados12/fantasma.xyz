@@ -2,7 +2,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { page } from '$app/stores';
-    import { getLibrarySets, deleteLibrarySet, getRecentVocabSets, getImagesFromSet, addImageToTerm } from "../../../utils/LibrarySets";
+    import { getLibrarySets, deleteLibrarySet, getRecentVocabSets, getImagesFromSet, addImageToTerm, getIrregularVerbs } from "../../../utils/LibrarySets";
     import { goto } from "$app/navigation";
     import { getVerbConjugations } from "../../../utils/Scraper";
     import { authStore } from "../../../utils/authStore.svelte";
@@ -36,16 +36,9 @@
         // Check each verb if it's irregular
         for (const verb of verbs) {
             try {
-                const response = await fetch(`${API_BASE}/api/spanish/check-irregular`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ verb: verb.term })
-                });
+                const response = await getIrregularVerbs(verb.term);
 
-                if (response.ok) {
-                    const data = await response.json();
-                    irregularVerbs.set(verb.term, data.irregular);
-                }
+                irregularVerbs.set(response.verb, response.irregular);
             } catch (error) {
                 console.error(`Error checking if ${verb.term} is irregular:`, error);
             }

@@ -18,6 +18,16 @@ export async function getRecentVocabSets(account_id: string): Promise<any> {
     }   
 }
 
+export async function getIrregularVerbs(verb: any): Promise<any> {
+
+    const response = await axios.post(`${getAPIUrlBasedOffEnviornment()}/api/spanish/check-irregular`, {
+        verb: verb
+    });
+    
+    return response.data;
+
+}
+
 export async function getImagesFromSet(set_id: number): Promise<any> {
 
     try {
