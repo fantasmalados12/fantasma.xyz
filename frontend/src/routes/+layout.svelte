@@ -3,12 +3,11 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
   import { authStore } from '../utils/authStore.svelte';
   import { browser } from '$app/environment';
 
   let sidebarOpen = $state(false);
-  let darkMode = writable(false);
+  let isDark = $state(false);
   let showUserMenu = $state(false);
 
   onMount(() => {
@@ -27,20 +26,20 @@
     // Check for saved theme preference
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
-      darkMode.set(true);
+      isDark = true;
       document.documentElement.classList.add('dark');
     }
   });
 
   const toggleDarkMode = () => {
-    darkMode.update(v => !v);
-    const isDark = !document.documentElement.classList.contains('dark');
     if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
+      isDark = false;
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      isDark = true;
     }
   };
 
@@ -88,11 +87,6 @@
       closeSidebar();
     }
   };
-
-  let isDark = false;
-  darkMode.subscribe(value => {
-    isDark = value;
-  });
 
   // Redirect to auth if not authenticated
   $effect(() => {
