@@ -27,6 +27,14 @@ RUN if [ -f pnpm-lock.yaml ]; then \
 # Copy the rest of the source
 COPY . .
 
+# 👇 Pass environment variables from build args
+ARG PUBLIC_SUPABASE_URL
+ARG PUBLIC_SUPABASE_ANON_KEY
+
+# 👇 Make them visible to the build process
+ENV PUBLIC_SUPABASE_URL=$PUBLIC_SUPABASE_URL
+ENV PUBLIC_SUPABASE_ANON_KEY=$PUBLIC_SUPABASE_ANON_KEY
+
 # Build for production
 RUN npm run build
 
