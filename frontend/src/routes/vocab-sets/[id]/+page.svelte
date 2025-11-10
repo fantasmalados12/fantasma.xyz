@@ -103,7 +103,7 @@
 
         // console.log(imagesAddedToTerms);
         const foundTerms = imagesAddedToTerms.filter((item: any) => item.associated_term === `icono-de-${term}`);
-        console.log(term, foundTerms);
+        // console.log(term, foundTerms);
         if (foundTerms.length > 0) {
             // @ts-ignore
             return foundTerms[0].image_url;
@@ -227,8 +227,8 @@
     async function confirmAddImages() {
         showAddImagesConfirmation = false;
 
-        console.log(vocabularySet);
-        for (let i: number = 0; i < vocabularySet.splice(0, 10).length; i++) {
+        // console.log(vocabularySet);
+        for (let i: number = 0; i < vocabularySet.length; i++) { // vocabularySet.splice(0, 10).length
             const term = vocabularySet[i];
 
             // Call API to add images for term 

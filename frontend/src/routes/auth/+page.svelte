@@ -60,7 +60,7 @@
     <!-- Animated floating title -->
     <div class="absolute top-20 floating">
         <h1 class="text-6xl md:text-7xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent drop-shadow-2xl">
-            fantasma
+            fantasma.xyz
         </h1>
     </div>
 

@@ -20,8 +20,8 @@ export async function getImageFromBingFromTerm(term: string): Promise<any> {
             region: 'us'
         },
         headers: {
-            'x-rapidapi-key': '141bf5a5admsh10a9cc334089fccp19225fjsn4f016830d173',
-            'x-rapidapi-host': 'real-time-image-search.p.rapidapi.com'
+        'x-rapidapi-key': '141bf5a5admsh10a9cc334089fccp19225fjsn4f016830d173',
+        'x-rapidapi-host': 'real-time-image-search.p.rapidapi.com'
         }
         };
 

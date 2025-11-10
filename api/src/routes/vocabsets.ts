@@ -40,8 +40,16 @@ router.post('/vocab-sets/add-image', async (req: Request, res: Response) => {
 
     const set_id: number = req.body['id'];
     const term: string = req.body['term'];
+
+    const check_query: string = `SELECT * FROM vocab_images WHERE associated_term=$1`;
+    const check_values = [term];
+    const checked_queries = await postgres.query(check_query, check_values);
+
+    if (checked_queries.rows.length > 0) {
+        return res.json({ success: true, prexist: true, image_url: checked_queries.rows[0].image_url});
+    }
+
     const image_body: any = await getImageFromBingFromTerm(term);
-    console.log(image_body);
     const image_url: string = image_body.data[0].thumbnail_url;
 
     const query: string = "INSERT INTO vocab_images (vocab_set_id, associated_term, image_url, created_at) VALUES ($1, $2, $3, NOW())";
@@ -49,7 +57,7 @@ router.post('/vocab-sets/add-image', async (req: Request, res: Response) => {
 
     await postgres.query(query, values);
 
-    console.log(set_id, term, image_url);
+    // console.log(set_id, term, image_url);
 
     res.json({ success: true, image_url: image_url });
 

@@ -4,3 +4,5 @@
 4. Putting verbs into sentences
 5. Fix typing for verbs not taking in "to"
 6. Settings for tilde marking for incorrect / correct
+7. Punching game, closer the cognate the harder the punch. If you're punching you have to click the spanish word that matches the word on the other persons forehead. HP bar, the words that are the numerical value that is assigned to each word in relation to cognation is going to assign the point value of said blow. 
+    If you hit a guy with an english cognate, it's not going to be worth as much. But if you hit the guy with a super irregular non-cognate then it will be worth more. Vise versa when they hit you. 
