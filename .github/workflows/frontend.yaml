@@ -46,6 +46,6 @@ jobs:
           set -e
           echo "Starting the docker containers"
           docker rm -f frontend && docker run -d --restart always --net host --name frontend ft-frontend
-          docker system prune --all --force 
+          
 
 

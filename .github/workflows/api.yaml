@@ -64,6 +64,6 @@ jobs:
           sleep 5
           docker rm -f api && docker run -d --restart always --net host --name api ft-api
           docker rm -f proxy && docker run -d --restart always --net host --name proxy ft-proxy
-          docker system prune --all --force 
+          
 
 

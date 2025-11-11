@@ -558,7 +558,46 @@ async function expandAllTerms(page: Page): Promise<void> {
     const maxClicks = 50; // Safety limit to prevent infinite loops
 
     while (totalClicks < maxClicks) {
-      // Try to find and click "See more" / "See more" button
+      // Debug: Log all buttons found on the page, specifically looking for "See more"
+      const debugInfo = await page.evaluate(() => {
+        const allButtons = Array.from(document.querySelectorAll('button, [role="button"], a[href="#"], div[onclick]'));
+
+        // Find buttons with "See more" or similar text/aria-label
+        const seeMoreButtons = allButtons.filter(b => {
+          const text = b.textContent?.toLowerCase().trim() || '';
+          const ariaLabel = (b.getAttribute('aria-label') || '').toLowerCase();
+          return text.includes('see') || text.includes('more') || text.includes('load') ||
+                 ariaLabel.includes('see') || ariaLabel.includes('more') || ariaLabel.includes('load');
+        }).map(b => ({
+          text: b.textContent?.trim() || '',
+          ariaLabel: b.getAttribute('aria-label') || '',
+          className: b.className,
+          tagName: b.tagName,
+          visible: (() => {
+            const style = window.getComputedStyle(b as HTMLElement);
+            const rect = b.getBoundingClientRect();
+            return style.display !== 'none' &&
+                   style.visibility !== 'hidden' &&
+                   style.opacity !== '0' &&
+                   rect.width > 0 &&
+                   rect.height > 0;
+          })(),
+          disabled: b.hasAttribute('disabled')
+        }));
+
+        return {
+          totalButtons: allButtons.length,
+          seeMoreButtons: seeMoreButtons
+        };
+      });
+
+      console.log('[TERMS] 🔍 Debug - Total buttons:', debugInfo.totalButtons);
+      console.log('[TERMS] 🔍 Debug - "See more" related buttons:', JSON.stringify(debugInfo.seeMoreButtons, null, 2));
+
+      // Wait a moment for the button to potentially appear
+      await randomDelay(1000, 1500);
+
+      // Try to find and click "See more" button
       const clickResult = await page.evaluate(() => {
         // Helper function to check if button is visible
         const isButtonVisible = (el: HTMLElement): boolean => {
@@ -572,53 +611,35 @@ async function expandAllTerms(page: Page): Promise<void> {
                  !el.hasAttribute('disabled');
         };
 
-        // Search all buttons for text content (prioritize "see more")
-        const allButtons = Array.from(document.querySelectorAll('button'));
+        // Look for button with BOTH aria-label="See more" AND text="See more"
+        const seeMoreButtons = document.querySelectorAll('button[aria-label="See more"]');
+        console.log(`[DEBUG] Found ${seeMoreButtons.length} buttons with aria-label="See more"`);
 
-        // First pass: look specifically for "see more" or "see more"
-        for (const button of allButtons) {
-          const text = button.textContent?.toLowerCase().trim() || '';
+        for (const button of Array.from(seeMoreButtons)) {
+          const el = button as HTMLElement;
+          const text = el.textContent?.trim() || '';
+          const ariaLabel = el.getAttribute('aria-label') || '';
 
-          if ((text === 'see more' || text === 'see more' || text === 'load more') && isButtonVisible(button)) {
-            button.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            button.click();
-            return { clicked: true, buttonText: text };
+          console.log(`[DEBUG] Checking button - Text: "${text}", Aria-label: "${ariaLabel}", Visible: ${isButtonVisible(el)}`);
+
+          // Must have BOTH aria-label="See more" AND text content "See more"
+          if (ariaLabel === 'See more' && text === 'See more' && isButtonVisible(el)) {
+            console.log('[DEBUG] ✅ Found exact "See more" button (both aria-label and text match)');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.click();
+            return { clicked: true, buttonText: 'See more', method: 'exact-match' };
           }
         }
 
-        // Second pass: look for buttons containing these phrases
-        for (const button of allButtons) {
-          const text = button.textContent?.toLowerCase() || '';
-
-          if ((text.includes('See more') || text.includes('see more') || text.includes('load more')) && isButtonVisible(button)) {
-            button.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            button.click();
-            return { clicked: true, buttonText: text.trim() };
+        // If exact match not found, just try aria-label="See more"
+        for (const button of Array.from(seeMoreButtons)) {
+          const el = button as HTMLElement;
+          if (isButtonVisible(el)) {
+            console.log('[DEBUG] Found button with aria-label="See more" (text may differ)');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.click();
+            return { clicked: true, buttonText: el.textContent?.trim() || 'See more', method: 'aria-label-only' };
           }
-        }
-
-        // Third pass: try specific selectors
-        const specificSelectors = [
-          'button[aria-label*="more"]',
-          'button[title*="more"]',
-          'button[data-testid="show-more"]',
-          '.SetPage-loadMoreButton',
-          '.ShowMoreButton'
-        ];
-
-        for (const selector of specificSelectors) {
-          try {
-            const buttons = Array.from(document.querySelectorAll(selector));
-            for (const button of buttons) {
-              const el = button as HTMLElement;
-              if (isButtonVisible(el)) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.click();
-                const text = el.textContent?.toLowerCase().trim() || '';
-                return { clicked: true, buttonText: text };
-              }
-            }
-          } catch {}
         }
 
         return { clicked: false };
@@ -630,10 +651,18 @@ async function expandAllTerms(page: Page): Promise<void> {
       }
 
       totalClicks++;
-      console.log(`[TERMS] 🖱️  Clicked "See more" button #${totalClicks} (${clickResult.buttonText})`);
+      console.log(`[TERMS] 🖱️  Clicked "See more" button #${totalClicks} (${clickResult.buttonText || 'via aria-label'})`);
 
-      // Wait for new terms to load
-      await randomDelay(800, 1200);
+      // Wait a bit for the click to register
+      await randomDelay(500, 700);
+
+      // Scroll to bottom to trigger lazy loading
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      // Wait longer for new terms to load (React/SPA needs time)
+      await randomDelay(2000, 3000);
 
       // Check if term count increased
       const currentCount = await page.evaluate(() => {
@@ -642,17 +671,30 @@ async function expandAllTerms(page: Page): Promise<void> {
 
       console.log(`[TERMS] 📊 Term elements: ${currentCount} (was ${lastCount})`);
 
-      // If count hasn't increased after clicking, we're done
+      // If count hasn't increased after clicking, try waiting a bit more and check again
       if (currentCount === lastCount) {
-        console.log('[TERMS] ✅ No new terms loaded, expansion complete');
-        break;
+        console.log('[TERMS] ⏳ No new terms yet, waiting a bit more...');
+        await randomDelay(2000, 3000);
+
+        const recheckedCount = await page.evaluate(() => {
+          return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+        });
+
+        console.log(`[TERMS] 📊 Rechecked term elements: ${recheckedCount}`);
+
+        if (recheckedCount === lastCount) {
+          console.log('[TERMS] ✅ No new terms loaded, expansion complete');
+          break;
+        }
+
+        lastCount = recheckedCount;
+      } else {
+        lastCount = currentCount;
       }
 
-      lastCount = currentCount;
-
-      // Scroll to bottom again to trigger any lazy loading
+      // Scroll back to top
       await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
+        window.scrollTo(0, 0);
       });
       await randomDelay(300, 500);
     }
