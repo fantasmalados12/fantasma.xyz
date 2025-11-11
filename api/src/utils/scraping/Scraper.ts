@@ -263,30 +263,122 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
   }
 }
 
-// ============================================================================
-// CAPTCHA HANDLING
-// ============================================================================
+async function getCaptchaIframeUrl(page: Page): Promise<string | null> {
+  // Known captcha patterns, now including Datadome
+  const markers = [
+    'recaptcha',
+    'hcaptcha',
+    'api2/anchor',
+    'api2/bframe',
+    'funcaptcha',
+    'captcha',
+    'datadome',           // 👈 NEW
+    'datadome.co',
+    '_datadome',
+    'ddcheck'
+  ];
 
+  // 1) Check DOM for iframe src attributes
+  try {
+    const src = await page.evaluate((markers) => {
+      const iframes = Array.from(document.querySelectorAll('iframe'));
+      for (const iframe of iframes) {
+        const s = (iframe.getAttribute('src') || '').toLowerCase();
+        if (!s) continue;
+        for (const m of markers) {
+          if (s.includes(m)) return s;
+        }
+      }
+      return null;
+    }, markers);
+
+    if (src) {
+      try {
+        return new URL(src, page.url()).toString();
+      } catch {
+        return src;
+      }
+    }
+  } catch (err) {
+    console.warn('[CAPTCHA] iframe DOM scan failed:', err);
+  }
+
+  // 2) Inspect Puppeteer frames (includes cross-origin)
+  try {
+    const frames = page.frames();
+    for (const frame of frames) {
+      const url = frame.url().toLowerCase();
+      for (const m of markers) {
+        if (url.includes(m)) return frame.url();
+      }
+    }
+  } catch (err) {
+    console.warn('[CAPTCHA] frame inspection failed:', err);
+  }
+
+  // 3) Datadome sometimes injects <script> or <link> tags referencing its endpoint
+  try {
+    const scriptUrl = await page.evaluate(() => {
+      const scripts = Array.from(document.querySelectorAll('script[src], link[href]'));
+      for (const el of scripts) {
+        const src = el.getAttribute('src') || el.getAttribute('href') || '';
+        if (src.toLowerCase().includes('datadome')) return src;
+      }
+      return null;
+    });
+
+    if (scriptUrl) {
+      try {
+        return new URL(scriptUrl, page.url()).toString();
+      } catch {
+        return scriptUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('[CAPTCHA] Datadome script scan failed:', err);
+  }
+
+  // 4) Last fallback: look for network requests if page is still loading Datadome assets
+  try {
+    const req = page.on('request', request => {
+      const url = request.url().toLowerCase();
+      if (url.includes('datadome')) {
+        console.log('[CAPTCHA] 🔍 Datadome request detected:', url);
+        return url;
+      }
+    });
+  } catch {
+    // no-op
+  }
+
+  return null;
+}
+
+// ============================================================================
+// CAPTCHA HANDLING (updated)
+// ============================================================================
 async function handleCaptcha(state: ScraperState): Promise<boolean> {
   console.log('[CAPTCHA] 🔍 Checking for captcha...');
 
   if (!state.page) return false;
-
-  // Wait a bit for captcha to potentially appear
   await randomDelay(1500, 2000);
 
-  // Detect captcha
-  const detection = await state.captchaSolver.detectCaptcha(state.page);
+  const iframeUrl: any = await getCaptchaIframeUrl(state.page);
+  if (iframeUrl) console.log(`[CAPTCHA] 🔗 Found iframe URL: ${iframeUrl}`);
+  else console.log('[CAPTCHA] ⚠️ No iframe URL found');
 
+  // Detect captcha
+  const detection = await state.captchaSolver.detectCaptcha(state.page, iframeUrl);
   if (!detection.detected) {
     console.log('[CAPTCHA] ✅ No captcha detected');
     return true;
   }
 
-  console.log(`[CAPTCHA] ⚠️  Detected: ${detection.type}`);
+  console.log(`[CAPTCHA] ⚠️ Detected: ${detection.type}`);
   await saveScreenshot(state, `captcha-detected-${detection.type}`);
 
-  // Solve captcha
+
+  // Solve captcha (pass iframe URL to solver if supported)
   const solution = await state.captchaSolver.solveCaptcha(state.url, detection);
 
   if (!solution.success) {
@@ -295,41 +387,33 @@ async function handleCaptcha(state: ScraperState): Promise<boolean> {
     return false;
   }
 
-  // Inject solution
   const injected = await state.captchaSolver.injectSolution(state.page, solution);
-
   if (!injected) {
     console.error('[CAPTCHA] ❌ Failed to inject solution');
     return false;
   }
 
-  // Wait for page to respond to captcha solution
   console.log('[CAPTCHA] ⏳ Waiting for page to process solution...');
   await randomDelay(2000, 3000);
 
-  // Wait for navigation or content to change (use domcontentloaded to avoid waiting for ads)
   await Promise.race([
     state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {}),
     randomDelay(4000, 5000)
   ]);
 
-  // Give the page a moment to settle
   await randomDelay(1000, 1500);
-
   await saveScreenshot(state, 'captcha-solved');
 
-  // Verify captcha is gone
-  await randomDelay(1000, 1500);
   const recheck = await state.captchaSolver.detectCaptcha(state.page);
-
   if (recheck.detected) {
-    console.warn('[CAPTCHA] ⚠️  Captcha still present after solving, may need retry');
+    console.warn('[CAPTCHA] ⚠️ Captcha still present after solving, may need retry');
     return false;
   }
 
   console.log('[CAPTCHA] ✅ Successfully bypassed');
   return true;
 }
+
 
 // ============================================================================
 // PAGE NAVIGATION

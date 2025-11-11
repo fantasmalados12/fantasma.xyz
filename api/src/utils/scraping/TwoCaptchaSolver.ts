@@ -62,7 +62,7 @@ export class TwoCaptchaSolver {
   /**
    * Detect what type of captcha is present on the page
    */
-  async detectCaptcha(page: Page): Promise<CaptchaDetectionResult> {
+  async detectCaptcha(page: Page, iframeUrl: any): Promise<CaptchaDetectionResult> {
     const html = await page.content();
 
     // Check for DataDome first (press & hold type)
@@ -70,7 +70,7 @@ export class TwoCaptchaSolver {
     if (datadomeData.captchaUrl) {
       console.log('[2CAPTCHA] 🔍 Detected: DataDome (Press & Hold)');
       console.log(datadomeData)
-      return { detected: true, type: 'datadome', siteKey: null, captchaUrl: datadomeData.captchaUrl };
+      return { detected: true, type: 'datadome', siteKey: null, captchaUrl: iframeUrl };
     }
 
     // Check for GeeTest (another press & hold type)
