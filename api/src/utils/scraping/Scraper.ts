@@ -68,7 +68,8 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
       // Allow all third-party iframes and disable blocking
       '--disable-web-security',
       '--disable-features=IsolateOrigins',
-      '--disable-site-isolation-for-policy'
+      '--disable-site-isolation-for-policy',
+      `--proxy-server=https://170.106.118.114:2334:u613ad942568805c2-zone-custom:u613ad942568805c2`
     ];
 
     // Add proxy if configured via environment variables
@@ -86,11 +87,16 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
 
     page = await browser.newPage();
 
+    const proxy_username = 'u613ad942568805c2-zone-custom';
+    const proxy_password = 'u613ad942568805c2';
+    const PROXY_DNS = '170.106.118.114';
+    const PROXY_PORT = 2334;
+
     // Authenticate proxy if credentials are provided
-    if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+    if (proxy_username && proxy_password) {
       await page.authenticate({
-        username: process.env.PROXY_USERNAME,
-        password: process.env.PROXY_PASSWORD
+        username: proxy_username,
+        password: proxy_password
       });
     }
 
