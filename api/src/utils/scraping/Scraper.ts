@@ -602,7 +602,7 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
 
               // Wait up to 15 seconds, checking status every 3 seconds
               let processingAttempts = 0;
-              const maxProcessingAttempts = 5;
+              const maxProcessingAttempts = 2;
               let stillProcessing = true;
 
               while (processingAttempts < maxProcessingAttempts && stillProcessing) {
@@ -833,16 +833,19 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
       }
     }
-    
-    // Extract title and all terms from the page
+
+    console.log("here");
+    // await page.waitForSelector('[class*="TermText"]', { timeout: 2000 });
+
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+
     const quizletData = await page.evaluate(() => {
       const results: Array<{ term: string; definition: string }> = [];
       const elements = document.querySelectorAll('[class*="TermText"]');
 
-      // Extract the title from the page with extensive debugging
-      let title = 'Untitled Set';
+      console.log(elements);
 
-      // Try multiple selectors and log what we find
+      let title = 'Untitled Set';
       const selectors = [
         'h1[class*="UIHeading"]',
         'h1',
@@ -856,45 +859,39 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
       let foundTitle = false;
       for (const selector of selectors) {
         const element = document.querySelector(selector);
-        if (element && element.textContent && element.textContent.trim()) {
-          console.log(`Found title with selector "${selector}": "${element.textContent.trim()}"`);
-          if (!foundTitle) {
-            title = element.textContent.trim();
-            foundTitle = true;
-          }
+        if (element && element.textContent?.trim()) {
+          console.log(`Found title: "${element.textContent.trim()}" via ${selector}`);
+          title = element.textContent.trim();
+          foundTitle = true;
+          break;
         }
       }
 
-      console.log(`Final title selected: "${title}"`);
+      if (!foundTitle) {
+        const meta = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
+        title = meta || document.title || 'Untitled Set';
+      }
 
-      if (elements.length > 0) {
-        const textArray: string[] = [];
+      const textArray: string[] = [];
+      elements.forEach(el => {
+        const text = el.textContent?.trim();
+        if (text) textArray.push(text);
+      });
 
-        elements.forEach((el) => {
-          const text = el.textContent?.trim();
-          if (text) {
-            textArray.push(text);
-          }
-        });
-
-        // Pair them up - terms and definitions alternate
-        for (let i = 0; i < textArray.length - 1; i += 2) {
-          if (textArray[i] && textArray[i + 1]) {
-            results.push({
-              term: textArray[i],
-              definition: textArray[i + 1]
-            });
-          }
-        }
+      for (let i = 0; i < textArray.length; i += 2) {
+        const term = textArray[i];
+        const definition = textArray[i + 1] || '';
+        if (term) results.push({ term, definition });
       }
 
       return { title, terms: results };
     });
 
-    console.log(`Scraped title from Quizlet: "${quizletData.title}"`);
-    console.log(`Scraped ${quizletData.terms.length} terms`);
+    console.log(`✅ Scraped title: "${quizletData.title}"`);
+    console.log(`✅ Found ${quizletData.terms.length} terms`);
 
     return quizletData;
+
     
   } catch (error) {
     throw error;

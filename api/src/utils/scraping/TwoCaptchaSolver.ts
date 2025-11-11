@@ -14,7 +14,7 @@ export class TwoCaptchaSolver {
   private enabled: boolean;
 
   constructor() {
-    const apiKey = process.env.TWOCAPTCHA_API_KEY;
+    const apiKey = "acc08ee48fc307ec51ab7d52dfb966e5";
 
     if (!apiKey) {
       console.log('⚠️  2Captcha API key not found. Set TWOCAPTCHA_API_KEY environment variable to enable.');
