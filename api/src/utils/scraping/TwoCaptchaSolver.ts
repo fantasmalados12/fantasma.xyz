@@ -69,6 +69,7 @@ export class TwoCaptchaSolver {
     const datadomeData = await this.extractDataDomeInfo(page, html);
     if (datadomeData.captchaUrl) {
       console.log('[2CAPTCHA] 🔍 Detected: DataDome (Press & Hold)');
+      console.log(datadomeData)
       return { detected: true, type: 'datadome', siteKey: null, captchaUrl: datadomeData.captchaUrl };
     }
 
