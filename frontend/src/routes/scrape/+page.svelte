@@ -3,6 +3,7 @@
     import { getCognateScore } from "../../utils/extras/Cognates";
     import { addLibrarySet } from "../../utils/LibrarySets";
     import { getVerbConjugations, scrapeURL } from "../../utils/Scraper";
+    import { scrapeURLStream, type ProgressEvent } from "../../utils/ScraperStream";
     import { authStore } from "../../utils/authStore.svelte";
 
 
@@ -14,23 +15,125 @@
     let showConjugations: boolean = false;
     let conjugations: any = {};
 
+    // Progress tracking
+    let progressMessage: string = '';
+    let progressPercent: number = 0;
+    let currentPhase: string = '';
+    let showProgress: boolean = false;
+    let abortScrape: (() => void) | null = null;
+
+    // Error modal
+    let showErrorModal: boolean = false;
+    let errorMessage: string = '';
+    let errorDetails: string = '';
+
     async function extractQuizlet() {
+        loading = true;
+        showProgress = true;
+        progressMessage = 'Initializing scraper...';
+        progressPercent = 0;
+        currentPhase = 'Starting';
 
-        // Scrape with the API
-        const results: any = await scrapeURL(url);
+        try {
+            // Try streaming first
+            abortScrape = await scrapeURLStream(url, {
+                onProgress: (event: ProgressEvent) => {
+                    console.log('[Progress]', event);
+                    progressMessage = event.message;
+                    progressPercent = event.progress;
 
-        console.log('Full API results:', results);
-        console.log('Received title from API:', results.title);
+                    // Set phase based on event type
+                    switch (event.type) {
+                        case 'browser_launch':
+                        case 'browser_ready':
+                            currentPhase = 'Browser Setup';
+                            break;
+                        case 'navigation_start':
+                        case 'navigation_success':
+                        case 'navigation_timeout':
+                            currentPhase = 'Loading Page';
+                            break;
+                        case 'captcha_check':
+                        case 'captcha_detected':
+                        case 'captcha_solving':
+                        case 'captcha_solved':
+                        case 'captcha_retry':
+                            currentPhase = 'Captcha Handling';
+                            break;
+                        case 'terms_loading':
+                        case 'terms_expanding':
+                        case 'terms_expanded':
+                            currentPhase = 'Expanding Terms';
+                            break;
+                        case 'extraction_start':
+                        case 'extraction_complete':
+                            currentPhase = 'Extracting Data';
+                            break;
+                        case 'complete':
+                            currentPhase = 'Complete';
+                            break;
+                        case 'attempt_start':
+                        case 'attempt_failed':
+                            currentPhase = 'Retry';
+                            break;
+                    }
+                },
+                onSuccess: (data: any) => {
+                    console.log('Scraping completed:', data);
+                    vocabResults = data.vocabStats;
+                    vocabularySet = data.vocabStats.terms;
+                    setTitle = data.title || 'Untitled Set';
+                    progressMessage = 'Success!';
+                    progressPercent = 100;
+                },
+                onError: (error: string) => {
+                    console.error('Scraping error:', error);
+                    errorMessage = 'Scraping Failed';
+                    errorDetails = error;
+                    showErrorModal = true;
+                },
+                onComplete: () => {
+                    loading = false;
+                    setTimeout(() => {
+                        showProgress = false;
+                    }, 1000);
+                }
+            });
+        } catch (error: any) {
+            console.error('Failed to start streaming, falling back to regular scrape:', error);
 
-        vocabResults = results.vocabStats;
-        vocabularySet = results.vocabStats.terms;
-        setTitle = results.title || 'Untitled Set';
+            // Fallback to regular scraping
+            progressMessage = 'Loading...';
+            try {
+                const results: any = await scrapeURL(url);
+                vocabResults = results.vocabStats;
+                vocabularySet = results.vocabStats.terms;
+                setTitle = results.title || 'Untitled Set';
+                progressMessage = 'Success!';
+                progressPercent = 100;
+            } catch (fallbackError: any) {
+                console.error('Regular scrape also failed:', fallbackError);
+                errorMessage = 'Scraping Failed';
+                errorDetails = fallbackError.message || 'An unknown error occurred';
+                showErrorModal = true;
+            } finally {
+                loading = false;
+                setTimeout(() => {
+                    showProgress = false;
+                }, 1000);
+            }
+        }
+    }
 
-        console.log('Set title to:', setTitle);
+    function retryExtraction() {
+        showErrorModal = false;
+        extractQuizlet();
+    }
 
-        // stop animation
+    function cancelExtraction() {
+        showErrorModal = false;
         loading = false;
-
+        showProgress = false;
     }
 
     async function togglePopup(verb: string) {
@@ -150,6 +253,48 @@
     </div>
 
     </div>
+
+    <!-- Progress Display -->
+    {#if showProgress}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <div class="space-y-4">
+            <!-- Phase and Message -->
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{currentPhase}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{progressMessage}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-2xl font-bold text-purple-500">{Math.round(progressPercent)}%</span>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                <div
+                    class="bg-gradient-to-r from-purple-500 to-indigo-600 h-full rounded-full transition-all duration-300 ease-out"
+                    style="width: {progressPercent}%"
+                ></div>
+            </div>
+
+            <!-- Phase Indicators -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div class="text-center p-2 rounded-lg {progressPercent >= 5 ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-gray-100 dark:bg-gray-700'}">
+                    <div class="text-xs font-medium {progressPercent >= 5 ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}">Browser</div>
+                </div>
+                <div class="text-center p-2 rounded-lg {progressPercent >= 30 ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-gray-100 dark:bg-gray-700'}">
+                    <div class="text-xs font-medium {progressPercent >= 30 ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}">Page Load</div>
+                </div>
+                <div class="text-center p-2 rounded-lg {progressPercent >= 60 ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-gray-100 dark:bg-gray-700'}">
+                    <div class="text-xs font-medium {progressPercent >= 60 ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}">Terms</div>
+                </div>
+                <div class="text-center p-2 rounded-lg {progressPercent >= 85 ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-gray-100 dark:bg-gray-700'}">
+                    <div class="text-xs font-medium {progressPercent >= 85 ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}">Extract</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {/if}
 
     {#if vocabularySet && !loading}
 
@@ -365,6 +510,61 @@
                 </table>
             </div>
             {/each}
+        </div>
+    </div>
+{/if}
+
+<!-- Error Modal -->
+{#if showErrorModal}
+    <div class="fixed inset-0 bg-black/50 z-50 flex justify-center items-center transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-gray-800 w-11/12 sm:w-3/4 md:w-1/2 lg:w-1/3 p-6 rounded-lg shadow-lg transform transition-all duration-300 scale-95 opacity-0 animate-modal-in"
+        >
+            <!-- Header -->
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">{errorMessage}</h2>
+                </div>
+            </div>
+
+            <!-- Error Details -->
+            <div class="mb-6">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    The scraper encountered an error while trying to extract the Quizlet set:
+                </p>
+                <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                    <p class="text-sm text-gray-800 dark:text-gray-200 font-mono break-words">
+                        {errorDetails}
+                    </p>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                    This could be due to a network issue, captcha, or changes to Quizlet's page structure.
+                </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button
+                    on:click={retryExtraction}
+                    class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Retry
+                </button>
+                <button
+                    on:click={cancelExtraction}
+                    class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors"
+                >
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 {/if}

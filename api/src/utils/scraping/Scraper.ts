@@ -4,6 +4,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TwoCaptchaSolver } from './TwoCaptchaSolver';
+import { ProgressEmitter } from './ProgressEmitter';
 
 puppeteer.use(StealthPlugin());
 
@@ -25,6 +26,7 @@ export interface ScrapeOptions {
   takeScreenshots?: boolean;
   maxRetries?: number;
   useProxy?: boolean;
+  progressEmitter?: ProgressEmitter;
 }
 
 interface ScraperState {
@@ -34,6 +36,7 @@ interface ScraperState {
   screenshotsDir: string;
   takeScreenshots: boolean;
   url: string;
+  progressEmitter?: ProgressEmitter;
 }
 
 // ============================================================================
@@ -65,14 +68,26 @@ const BROWSER_ARGS = [
   '--window-size=1920,1080',
   '--disable-infobars',
   '--disable-notifications',
+  '--disable-background-timer-throttling',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-renderer-backgrounding',
+  '--disable-site-isolation-trials',
+  '--enable-features=NetworkService,NetworkServiceInProcess',
+  '--force-color-profile=srgb',
+  '--metrics-recording-only',
+  '--mute-audio',
+  '--disable-default-apps',
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--disable-component-extensions-with-background-pages',
 ];
 
 const TIMEOUTS = {
-  navigation: 15000, // Fast navigation timeout
-  captchaSolve: 90000, // Reduced captcha solving time
-  termExpansion: 10000, // Faster term expansion
-  pageLoad: 8000,
-  contentReady: 5000, // Time to wait for main content
+  navigation: 12000, // Faster navigation
+  captchaSolve: 90000,
+  termExpansion: 6000, // Much faster
+  pageLoad: 6000, // Faster page load
+  contentReady: 3000, // Faster content ready
 };
 
 // ============================================================================
@@ -117,8 +132,9 @@ async function saveScreenshot(state: ScraperState, name: string): Promise<string
 // BROWSER INITIALIZATION
 // ============================================================================
 
-async function initBrowser(useProxy: boolean): Promise<Browser> {
+async function initBrowser(useProxy: boolean, progressEmitter?: ProgressEmitter): Promise<Browser> {
   console.log('[BROWSER] 🚀 Launching...');
+  progressEmitter?.browserLaunch();
 
   const args = [...BROWSER_ARGS];
   if (useProxy) {
@@ -127,13 +143,15 @@ async function initBrowser(useProxy: boolean): Promise<Browser> {
   }
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: 'shell', // Use new headless mode - more stealthy and faster
     args,
     ignoreDefaultArgs: ['--enable-automation'],
     defaultViewport: null,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // Allow custom Chrome path
   });
 
   console.log('[BROWSER] ✅ Launched successfully');
+  progressEmitter?.browserReady();
   return browser;
 }
 
@@ -196,11 +214,11 @@ async function initPage(browser: Browser, useProxy: boolean): Promise<Page> {
   // Set viewport
   await page.setViewport({ width: 1920, height: 1080 });
 
-  // Inject stealth scripts
+  // Advanced stealth scripts
   await page.evaluateOnNewDocument(() => {
     // Override navigator properties
     Object.defineProperty(navigator, 'webdriver', {
-      get: () => false,
+      get: () => undefined,
     });
 
     Object.defineProperty(navigator, 'languages', {
@@ -215,9 +233,22 @@ async function initPage(browser: Browser, useProxy: boolean): Promise<Page> {
       get: () => 'Win32',
     });
 
+    // Better hardware concurrency
+    Object.defineProperty(navigator, 'hardwareConcurrency', {
+      get: () => 8,
+    });
+
+    // Device memory
+    Object.defineProperty(navigator, 'deviceMemory', {
+      get: () => 8,
+    });
+
     // Mock chrome runtime
     (window as any).chrome = {
       runtime: {},
+      loadTimes: function() {},
+      csi: function() {},
+      app: {},
     };
 
     // Override permissions
@@ -226,6 +257,29 @@ async function initPage(browser: Browser, useProxy: boolean): Promise<Page> {
       parameters.name === 'notifications'
         ? Promise.resolve({ state: 'denied' } as PermissionStatus)
         : originalQuery(parameters);
+
+    // Remove automation indicators
+    delete (window.navigator as any).__proto__.webdriver;
+
+    // Mock real browser properties
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+      get: () => 0,
+    });
+
+    // Canvas fingerprint randomization (basic)
+    const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function(type) {
+      const context = this.getContext('2d');
+      if (context) {
+        const imageData = context.getImageData(0, 0, this.width, this.height);
+        // Add minimal noise
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          imageData.data[i] = imageData.data[i] + Math.random() * 0.1;
+        }
+        context.putImageData(imageData, 0, 0);
+      }
+      return originalToDataURL.apply(this, [type]);
+    };
   });
 
   console.log('[PAGE] ✅ Initialized with stealth scripts');
@@ -240,18 +294,17 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
   console.log('[HUMAN] 🤖 Simulating human behavior...');
 
   try {
-    // Quick mouse movements (reduced from 5 to 2)
-    for (let i = 0; i < 2; i++) {
-      const x = Math.floor(Math.random() * 1920);
-      const y = Math.floor(Math.random() * 1080);
-      await page.mouse.move(x, y, { steps: 3 });
-      await randomDelay(30, 50);
-    }
+    // Faster, more realistic mouse movement
+    const x = Math.floor(Math.random() * 1920);
+    const y = Math.floor(Math.random() * 500) + 100; // Stay in viewport
+    await page.mouse.move(x, y, { steps: 2 });
 
-    // Quick scroll
+    // Minimal scroll with randomized timing
     await page.evaluate(() => {
-      window.scrollBy(0, Math.floor(Math.random() * 200) + 100);
+      window.scrollBy(0, Math.floor(Math.random() * 150) + 50);
     });
+
+    await randomDelay(50, 150); // Much faster
 
     console.log('[HUMAN] ✅ Behavior simulation complete');
   } catch (error) {
@@ -264,76 +317,69 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
 // ============================================================================
 
 async function handleCaptcha(state: ScraperState, currentAttempt: number, maxRetries: number): Promise<boolean> {
-  console.log('[CAPTCHA] 🔍 Checking for captcha...');
+  console.log('[CAPTCHA] 🔍 Quick captcha check...');
+  state.progressEmitter?.captchaCheck();
 
   if (!state.page) return false;
 
-  // Wait a bit for captcha to potentially appear (reduced delay)
-  await randomDelay(800, 1200);
+  // Minimal wait - faster detection
+  await randomDelay(500, 700);
 
   // Detect captcha
   const detection = await state.captchaSolver.detectCaptcha(state.page, state.url);
 
   if (!detection.detected) {
-    console.log('[CAPTCHA] ✅ No captcha detected');
+    console.log('[CAPTCHA] ✅ No captcha');
     return true;
   }
 
   console.log(`[CAPTCHA] ⚠️  Detected: ${detection.type}`);
-  await saveScreenshot(state, `captcha-detected-${detection.type}-attempt-${currentAttempt}`);
+  await saveScreenshot(state, `captcha-${currentAttempt}`);
 
-  // Only solve captcha on the last attempt (attempt 3)
-  // On attempts 1-2, close browser and retry with a fresh session
+  // Retry with fresh browser on first 2 attempts (avoid captcha completely)
+  const willSolve = currentAttempt >= maxRetries;
+  state.progressEmitter?.captchaDetected(detection.type || 'unknown', willSolve);
+
   if (currentAttempt < maxRetries) {
-    console.log(`[CAPTCHA] 🔄 Attempt ${currentAttempt}/${maxRetries}: Captcha detected, will retry with fresh browser`);
+    console.log(`[CAPTCHA] 🔄 Retry ${currentAttempt}/${maxRetries} with fresh session`);
     return false;
   }
 
-  // Last attempt - solve the captcha
-  console.log(`[CAPTCHA] 🧩 Attempt ${currentAttempt}/${maxRetries}: Solving captcha...`);
+  // Last attempt - solve it
+  console.log(`[CAPTCHA] 🧩 Solving (attempt ${currentAttempt})...`);
+  state.progressEmitter?.captchaSolving();
 
-  // Solve captcha
   const solution = await state.captchaSolver.solveCaptcha(state.url, detection);
 
   if (!solution.success) {
-    console.error(`[CAPTCHA] ❌ Failed to solve: ${solution.error}`);
-    await saveScreenshot(state, 'captcha-failed');
+    console.error(`[CAPTCHA] ❌ Solve failed: ${solution.error}`);
     return false;
   }
 
-  // Inject solution
   const injected = await state.captchaSolver.injectSolution(state.page, solution);
-
   if (!injected) {
-    console.error('[CAPTCHA] ❌ Failed to inject solution');
+    console.error('[CAPTCHA] ❌ Inject failed');
     return false;
   }
 
-  // Wait for page to respond to captcha solution (reduced)
-  console.log('[CAPTCHA] ⏳ Waiting for page to process solution...');
-  await randomDelay(1500, 2000);
-
-  // Wait for navigation or content to change (use domcontentloaded to avoid waiting for ads)
+  // Fast wait for response
+  await randomDelay(1000, 1500);
   await Promise.race([
-    state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 6000 }).catch(() => {}),
-    randomDelay(3000, 4000)
+    state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+    randomDelay(2500, 3000)
   ]);
-
-  // Give the page a moment to settle (reduced)
-  await randomDelay(800, 1200);
 
   await saveScreenshot(state, 'captcha-solved');
 
-  // Verify captcha is gone (reduced delay)
-  await randomDelay(500, 800);
+  // Quick verify
   const recheck = await state.captchaSolver.detectCaptcha(state.page, state.url);
-
   if (recheck.detected) {
-    console.warn('[CAPTCHA] ⚠️  Captcha still present after solving, may need retry');
+    console.warn('[CAPTCHA] ⚠️  Still present');
     return false;
   }
 
-  console.log('[CAPTCHA] ✅ Successfully bypassed');
+  console.log('[CAPTCHA] ✅ Bypassed');
+  state.progressEmitter?.captchaSolved();
   return true;
 }
 
@@ -345,6 +391,7 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
   if (!state.page) return false;
 
   console.log(`[NAV] 🔗 Navigating to: ${state.url}`);
+  state.progressEmitter?.navigationStart(state.url);
 
   let navigationSucceeded = true;
   let response = null;
@@ -368,6 +415,7 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
     // Navigation timeout is OK if page content is loaded
     if (error.message.includes('timeout') || error.message.includes('Navigation timeout')) {
       console.log('[NAV] ⚠️  Navigation timeout, checking if page loaded anyway...');
+      state.progressEmitter?.navigationTimeout();
       navigationSucceeded = false;
     } else {
       throw error;
@@ -380,8 +428,8 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
     { timeout: 3000 }
   ).catch(() => {});
 
-  // Minimal delay for React/SPA to initialize
-  await randomDelay(1000, 1500);
+  // Quick delay for SPA initialization
+  await randomDelay(600, 900);
 
   try {
     // Check if page has actual content (not a white screen or error page)
@@ -422,6 +470,7 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
     // If we have good content, accept the page even if navigation timed out
     if (!navigationSucceeded && pageCheck.bodyHTMLLength > 100000 && pageCheck.title.includes('Quizlet')) {
       console.log('[NAV] ✅ Page loaded successfully despite navigation timeout');
+      state.progressEmitter?.navigationSuccess();
       await saveScreenshot(state, 'initial-load');
       return true;
     }
@@ -476,6 +525,7 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
 
     await saveScreenshot(state, 'initial-load');
     console.log('[NAV] ✅ Navigation successful');
+    state.progressEmitter?.navigationSuccess();
     return true;
 
   } catch (error: any) {
@@ -517,159 +567,100 @@ async function waitForTerms(page: Page): Promise<boolean> {
     const termSelectors = [
       '[class*="TermText"]',
       '[class*="SetPageTerm"]',
-      '.SetPageTerm-term',
-      '.SetPageTerm-definition',
+      '[class*="StudiableCard"]',
       '[data-testid*="term"]',
-      '[class*="term-container"]'
     ];
 
-    // Try each selector
-    let found = false;
-    for (const selector of termSelectors) {
-      const element = await page.waitForSelector(selector, { timeout: 3000 }).catch(() => null);
-      if (element) {
-        console.log(`[TERMS] ✅ Found terms using selector: ${selector}`);
-        found = true;
-        break;
-      }
+    // Try selectors in parallel for speed
+    const elementPromise = Promise.race(
+      termSelectors.map(selector =>
+        page.waitForSelector(selector, { timeout: 3000 })
+          .then(() => selector)
+          .catch(() => null)
+      )
+    );
+
+    const foundSelector = await elementPromise;
+    if (foundSelector) {
+      console.log(`[TERMS] ✅ Found terms using selector: ${foundSelector}`);
+    } else {
+      console.log('[TERMS] ⚠️  No term elements found, but continuing...');
     }
 
-    if (!found) {
-      console.warn('[TERMS] ⚠️  No term elements found with known selectors');
-      return false;
-    }
-
-    // Wait for terms to stabilize (no new terms appearing)
+    // Quick stabilization check - only 2 iterations
     let lastCount = 0;
-    let stableCount = 0;
-
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 2; i++) {
       await randomDelay(300, 500);
 
       const count = await page.evaluate(() => {
-        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"], [class*="StudiableCard"]').length;
       });
 
       if (count === lastCount && count > 0) {
-        stableCount++;
-        if (stableCount >= 2) {
-          console.log(`[TERMS] ✅ Terms stable at ${count} elements`);
-          break;
-        }
-      } else {
-        stableCount = 0;
-        lastCount = count;
+        console.log(`[TERMS] ✅ Terms stable at ${count} elements`);
+        break;
       }
+      lastCount = count;
     }
 
     return true;
 
   } catch (error) {
-    console.warn('[TERMS] ⚠️  Terms may not have loaded properly');
-    return false;
+    console.warn('[TERMS] ⚠️  Terms may not have loaded properly, but continuing...');
+    return true;
   }
 }
 
-async function expandAllTerms(page: Page): Promise<void> {
+async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Promise<void> {
   console.log('[TERMS] 📈 Attempting to expand all terms...');
+  progressEmitter?.termsLoading();
 
   try {
-    // First, scroll to bottom to trigger lazy loading
+    // Fast initial scroll to trigger lazy loading
+    console.log('[TERMS] 📜 Fast scroll to load content...');
     await page.evaluate(async () => {
+      // Instant scroll to bottom
       window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 800));
+      // Back to top
       window.scrollTo(0, 0);
+      await new Promise(r => setTimeout(r, 300));
     });
 
-    await randomDelay(500, 800);
-
-    // Keep clicking "See more" until there are no more buttons or terms stop increasing
+    // Keep clicking "See more" until there are no more buttons
     let totalClicks = 0;
     let lastCount = 0;
-    const maxClicks = 50; // Safety limit to prevent infinite loops
+    let noButtonCount = 0;
+    const maxClicks = 100;
 
     while (totalClicks < maxClicks) {
-      // Debug: Log all buttons found on the page, specifically looking for "See more"
-      const debugInfo = await page.evaluate(() => {
-        const allButtons = Array.from(document.querySelectorAll('button, [role="button"], a[href="#"], div[onclick]'));
+      // Minimal wait
+      await randomDelay(400, 600);
 
-        // Find buttons with "See more" or similar text/aria-label
-        const seeMoreButtons = allButtons.filter(b => {
-          const text = b.textContent?.toLowerCase().trim() || '';
-          const ariaLabel = (b.getAttribute('aria-label') || '').toLowerCase();
-          return text.includes('see') || text.includes('more') || text.includes('load') ||
-                 ariaLabel.includes('see') || ariaLabel.includes('more') || ariaLabel.includes('load');
-        }).map(b => ({
-          text: b.textContent?.trim() || '',
-          ariaLabel: b.getAttribute('aria-label') || '',
-          className: b.className,
-          tagName: b.tagName,
-          visible: (() => {
-            const style = window.getComputedStyle(b as HTMLElement);
-            const rect = b.getBoundingClientRect();
-            return style.display !== 'none' &&
-                   style.visibility !== 'hidden' &&
-                   style.opacity !== '0' &&
-                   rect.width > 0 &&
-                   rect.height > 0;
-          })(),
-          disabled: b.hasAttribute('disabled')
-        }));
-
-        return {
-          totalButtons: allButtons.length,
-          seeMoreButtons: seeMoreButtons
-        };
-      });
-
-      console.log('[TERMS] 🔍 Debug - Total buttons:', debugInfo.totalButtons);
-      console.log('[TERMS] 🔍 Debug - "See more" related buttons:', JSON.stringify(debugInfo.seeMoreButtons, null, 2));
-
-      // Wait a moment for the button to potentially appear (reduced)
-      await randomDelay(500, 800);
-
-      // Try to find and click "See more" button
+      // Fast button detection and click
       const clickResult = await page.evaluate(() => {
-        // Helper function to check if button is visible
-        const isButtonVisible = (el: HTMLElement): boolean => {
+        const isVisible = (el: HTMLElement): boolean => {
           const style = window.getComputedStyle(el);
           const rect = el.getBoundingClientRect();
-          return style.display !== 'none' &&
-                 style.visibility !== 'hidden' &&
-                 style.opacity !== '0' &&
-                 rect.width > 0 &&
-                 rect.height > 0 &&
-                 !el.hasAttribute('disabled');
+          return style.display !== 'none' && style.visibility !== 'hidden' &&
+                 style.opacity !== '0' && rect.height > 0 && !el.hasAttribute('disabled');
         };
 
-        // Look for button with BOTH aria-label="See more" AND text="See more"
-        const seeMoreButtons = document.querySelectorAll('button[aria-label="See more"]');
-        console.log(`[DEBUG] Found ${seeMoreButtons.length} buttons with aria-label="See more"`);
-
-        for (const button of Array.from(seeMoreButtons)) {
-          const el = button as HTMLElement;
-          const text = el.textContent?.trim() || '';
-          const ariaLabel = el.getAttribute('aria-label') || '';
-
-          console.log(`[DEBUG] Checking button - Text: "${text}", Aria-label: "${ariaLabel}", Visible: ${isButtonVisible(el)}`);
-
-          // Must have BOTH aria-label="See more" AND text content "See more"
-          if (ariaLabel === 'See more' && text === 'See more' && isButtonVisible(el)) {
-            console.log('[DEBUG] ✅ Found exact "See more" button (both aria-label and text match)');
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.click();
-            return { clicked: true, buttonText: 'See more', method: 'exact-match' };
-          }
+        // Try aria-label first (fastest)
+        const byAria = document.querySelector('button[aria-label="See more"]') as HTMLElement;
+        if (byAria && isVisible(byAria)) {
+          byAria.click();
+          return { clicked: true };
         }
 
-        // If exact match not found, just try aria-label="See more"
-        for (const button of Array.from(seeMoreButtons)) {
-          const el = button as HTMLElement;
-          if (isButtonVisible(el)) {
-            console.log('[DEBUG] Found button with aria-label="See more" (text may differ)');
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Try text match
+        const allButtons = Array.from(document.querySelectorAll('button, [role="button"]'));
+        for (const btn of allButtons) {
+          const el = btn as HTMLElement;
+          const text = el.textContent?.toLowerCase() || '';
+          if ((text.includes('see') || text.includes('show')) && text.includes('more') && isVisible(el)) {
             el.click();
-            return { clicked: true, buttonText: el.textContent?.trim() || 'See more', method: 'aria-label-only' };
+            return { clicked: true };
           }
         }
 
@@ -677,72 +668,60 @@ async function expandAllTerms(page: Page): Promise<void> {
       });
 
       if (!clickResult.clicked) {
-        console.log('[TERMS] ℹ️  No more "See more" buttons found');
+        noButtonCount++;
+        if (noButtonCount >= 2) {
+          console.log('[TERMS] ✅ No more buttons, expansion complete');
+          break;
+        }
+        await randomDelay(500, 700);
+        continue;
+      }
+
+      noButtonCount = 0;
+      totalClicks++;
+      console.log(`[TERMS] 🖱️  Clicked #${totalClicks}`);
+
+      // Quick scroll after click
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await randomDelay(800, 1200); // Wait for content to load
+
+      // Check count
+      const currentCount = await page.evaluate(() =>
+        document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length
+      );
+
+      console.log(`[TERMS] 📊 ${currentCount} elements (was ${lastCount})`);
+      progressEmitter?.termsExpanding(totalClicks, currentCount);
+
+      // If no increase after 2 clicks, we're done
+      if (currentCount === lastCount && totalClicks > 1) {
+        console.log('[TERMS] ✅ No new terms, done');
         break;
       }
 
-      totalClicks++;
-      console.log(`[TERMS] 🖱️  Clicked "See more" button #${totalClicks} (${clickResult.buttonText || 'via aria-label'})`);
+      lastCount = currentCount;
 
-      // Wait a bit for the click to register (reduced)
-      await randomDelay(300, 500);
-
-      // Scroll to bottom to trigger lazy loading
-      await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      });
-
-      // Wait for new terms to load (reduced)
-      await randomDelay(1000, 1500);
-
-      // Check if term count increased
-      const currentCount = await page.evaluate(() => {
-        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
-      });
-
-      console.log(`[TERMS] 📊 Term elements: ${currentCount} (was ${lastCount})`);
-
-      // If count hasn't increased after clicking, try waiting a bit more and check again
-      if (currentCount === lastCount) {
-        console.log('[TERMS] ⏳ No new terms yet, waiting a bit more...');
-        await randomDelay(1000, 1500);
-
-        const recheckedCount = await page.evaluate(() => {
-          return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
-        });
-
-        console.log(`[TERMS] 📊 Rechecked term elements: ${recheckedCount}`);
-
-        if (recheckedCount === lastCount) {
-          console.log('[TERMS] ✅ No new terms loaded, expansion complete');
-          break;
-        }
-
-        lastCount = recheckedCount;
-      } else {
-        lastCount = currentCount;
-      }
-
-      // Scroll back to top
-      await page.evaluate(() => {
-        window.scrollTo(0, 0);
-      });
-      await randomDelay(300, 500);
+      // Quick scroll back to top for next button
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await randomDelay(200, 400);
     }
 
-    if (totalClicks >= maxClicks) {
-      console.warn(`[TERMS] ⚠️  Reached max clicks (${maxClicks}), stopping`);
-    }
-
-    // Final count
-    const finalCount = await page.evaluate(() => {
-      return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+    // Final quick scroll
+    await page.evaluate(async () => {
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise(r => setTimeout(r, 500));
+      window.scrollTo(0, 0);
     });
 
-    console.log(`[TERMS] ✅ Expansion complete. Total clicks: ${totalClicks}, Final term elements: ${finalCount}`);
+    const finalCount = await page.evaluate(() =>
+      document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length
+    );
+
+    console.log(`[TERMS] ✅ Done. ${totalClicks} clicks, ${finalCount} elements`);
+    progressEmitter?.termsExpanded(finalCount);
 
   } catch (error: any) {
-    console.warn(`[TERMS] ⚠️  Expansion error (non-critical): ${error.message}`);
+    console.warn(`[TERMS] ⚠️  Expansion error: ${error.message}`);
   }
 }
 
@@ -750,17 +729,18 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
   if (!state.page) return null;
 
   console.log('[EXTRACT] 📚 Extracting terms and title...');
+  state.progressEmitter?.extractionStart();
 
   try {
     // Wait for terms
     await waitForTerms(state.page);
 
     // Expand all terms
-    await expandAllTerms(state.page);
+    await expandAllTerms(state.page, state.progressEmitter);
 
     await saveScreenshot(state, 'before-extraction');
 
-    // Extract data
+    // Extract data with improved strategies
     const data = await state.page.evaluate(() => {
       // Extract title
       const titleSelectors = [
@@ -769,6 +749,8 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
         '[data-testid="SetPageTitle"]',
         '.SetPage-title',
         'h1',
+        '[class*="SetPage"] h1',
+        'header h1',
       ];
 
       let title = 'Untitled Set';
@@ -787,8 +769,9 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
 
       // Extract terms using multiple strategies
       const results: Array<{ term: string; definition: string }> = [];
+      const seenTerms = new Set<string>(); // Prevent duplicates
 
-      // Strategy 1: Look for TermText class pattern
+      // Strategy 1: Look for TermText class pattern (most common)
       const termTextElements = document.querySelectorAll('[class*="TermText"]');
       console.log(`[EXTRACT DEBUG] Strategy 1: Found ${termTextElements.length} TermText elements`);
 
@@ -796,27 +779,34 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
         const texts: string[] = [];
         termTextElements.forEach(el => {
           const text = el.textContent?.trim();
-          if (text) texts.push(text);
+          if (text && text.length > 0) texts.push(text);
         });
 
         console.log(`[EXTRACT DEBUG] Strategy 1: Got ${texts.length} text items`);
 
         // Pair them up (term, definition, term, definition, ...)
         for (let i = 0; i < texts.length; i += 2) {
-          if (texts[i + 1]) {
-            results.push({
-              term: texts[i],
-              definition: texts[i + 1]
-            });
+          if (texts[i] && texts[i + 1]) {
+            const termKey = `${texts[i]}::${texts[i + 1]}`;
+            if (!seenTerms.has(termKey)) {
+              results.push({
+                term: texts[i],
+                definition: texts[i + 1]
+              });
+              seenTerms.add(termKey);
+            }
           }
         }
 
-        console.log(`[EXTRACT DEBUG] Strategy 1: Extracted ${results.length} terms`);
+        console.log(`[EXTRACT DEBUG] Strategy 1: Extracted ${results.length} unique terms`);
       }
 
       // Strategy 2: Look for SetPageTerm structure
       if (results.length === 0) {
+        console.log(`[EXTRACT DEBUG] Strategy 2: Trying SetPageTerm structure...`);
         const termCards = document.querySelectorAll('[class*="SetPageTerm"]');
+        console.log(`[EXTRACT DEBUG] Strategy 2: Found ${termCards.length} SetPageTerm cards`);
+
         termCards.forEach(card => {
           const termEl = card.querySelector('[class*="term"], [class*="Term"]');
           const defEl = card.querySelector('[class*="definition"], [class*="Definition"]');
@@ -824,45 +814,109 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
           const term = termEl?.textContent?.trim();
           const definition = defEl?.textContent?.trim();
 
-          if (term && definition) {
-            results.push({ term, definition });
-          }
-        });
-      }
-
-      // Strategy 3: Look for specific class combinations
-      if (results.length === 0) {
-        const containers = document.querySelectorAll('.SetPageTerm-term, .SetPageTerm-definition');
-        const texts: string[] = [];
-        containers.forEach(el => {
-          const text = el.textContent?.trim();
-          if (text) texts.push(text);
-        });
-
-        for (let i = 0; i < texts.length; i += 2) {
-          if (texts[i + 1]) {
-            results.push({
-              term: texts[i],
-              definition: texts[i + 1]
-            });
-          }
-        }
-      }
-
-      // Strategy 4: Look for data attributes
-      if (results.length === 0) {
-        const termEls = document.querySelectorAll('[data-testid*="term"]');
-        termEls.forEach(el => {
-          const card = el.closest('[class*="card"], [class*="Card"], [class*="term-container"]');
-          if (card) {
-            const termText = card.querySelector('[class*="term"]')?.textContent?.trim();
-            const defText = card.querySelector('[class*="definition"]')?.textContent?.trim();
-
-            if (termText && defText) {
-              results.push({ term: termText, definition: defText });
+          if (term && definition && term.length > 0 && definition.length > 0) {
+            const termKey = `${term}::${definition}`;
+            if (!seenTerms.has(termKey)) {
+              results.push({ term, definition });
+              seenTerms.add(termKey);
             }
           }
         });
+
+        console.log(`[EXTRACT DEBUG] Strategy 2: Extracted ${results.length} unique terms`);
+      }
+
+      // Strategy 3: Look for StudiableCard structure (newer Quizlet design)
+      if (results.length === 0) {
+        console.log(`[EXTRACT DEBUG] Strategy 3: Trying StudiableCard structure...`);
+        const cards = document.querySelectorAll('[class*="StudiableCard"], [class*="studiable"]');
+        console.log(`[EXTRACT DEBUG] Strategy 3: Found ${cards.length} StudiableCard elements`);
+
+        cards.forEach(card => {
+          // Try to find term and definition within the card
+          const allText = Array.from(card.querySelectorAll('[class*="Text"]'))
+            .map(el => el.textContent?.trim())
+            .filter(t => t && t.length > 0);
+
+          if (allText.length >= 2) {
+            const termKey = `${allText[0]}::${allText[1]}`;
+            if (!seenTerms.has(termKey)) {
+              results.push({
+                term: allText[0] || '',
+                definition: allText[1] || ''
+              });
+              seenTerms.add(termKey);
+            }
+          }
+        });
+
+        console.log(`[EXTRACT DEBUG] Strategy 3: Extracted ${results.length} unique terms`);
+      }
+
+      // Strategy 4: Look for any card-like structures
+      if (results.length === 0) {
+        console.log(`[EXTRACT DEBUG] Strategy 4: Trying generic card structures...`);
+        const containers = document.querySelectorAll('[class*="card"], [class*="Card"], [class*="term-container"]');
+        console.log(`[EXTRACT DEBUG] Strategy 4: Found ${containers.length} card-like containers`);
+
+        containers.forEach(container => {
+          const allText = Array.from(container.querySelectorAll('div, span, p'))
+            .map(el => el.textContent?.trim())
+            .filter(t => t && t.length > 0 && t.length < 500); // Reasonable length
+
+          // Try to find pairs of text that could be term/definition
+          if (allText.length >= 2) {
+            const termKey = `${allText[0]}::${allText[1]}`;
+            if (!seenTerms.has(termKey) && allText[0] !== allText[1]) {
+              results.push({
+                term: allText[0] || '',
+                definition: allText[1] || ''
+              });
+              seenTerms.add(termKey);
+            }
+          }
+        });
+
+        console.log(`[EXTRACT DEBUG] Strategy 4: Extracted ${results.length} unique terms`);
+      }
+
+      // Strategy 5: Last resort - look for any repeated pattern in the DOM
+      if (results.length === 0) {
+        console.log(`[EXTRACT DEBUG] Strategy 5: Last resort - analyzing DOM patterns...`);
+
+        // Find all divs that might contain terms
+        const allDivs = document.querySelectorAll('div[class]');
+        const textPairs: Array<[string, string]> = [];
+
+        // Group elements by similar structure
+        for (let i = 0; i < allDivs.length - 1; i++) {
+          const current = allDivs[i];
+          const next = allDivs[i + 1];
+
+          const currentText = current.textContent?.trim() || '';
+          const nextText = next.textContent?.trim() || '';
+
+          // If both have reasonable text and similar structure, they might be a term pair
+          if (currentText.length > 0 && currentText.length < 300 &&
+              nextText.length > 0 && nextText.length < 500 &&
+              currentText !== nextText &&
+              current.className === next.className) {
+            textPairs.push([currentText, nextText]);
+          }
+        }
+
+        // If we found repeated patterns, use them
+        if (textPairs.length > 2) {
+          textPairs.forEach(([term, definition]) => {
+            const termKey = `${term}::${definition}`;
+            if (!seenTerms.has(termKey)) {
+              results.push({ term, definition });
+              seenTerms.add(termKey);
+            }
+          });
+        }
+
+        console.log(`[EXTRACT DEBUG] Strategy 5: Extracted ${results.length} unique terms`);
       }
 
       return {
@@ -878,6 +932,7 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
     }
 
     console.log(`[EXTRACT] ✅ Extracted "${data.title}" with ${data.terms.length} terms`);
+    state.progressEmitter?.extractionComplete(data.terms.length, data.title);
     await saveScreenshot(state, 'extraction-complete');
 
     return data;
@@ -901,6 +956,7 @@ export async function scrapeQuizlet(
     takeScreenshots = false,
     maxRetries = 3,
     useProxy = true,
+    progressEmitter,
   } = options;
 
   console.log('\n' + '='.repeat(70));
@@ -926,6 +982,7 @@ export async function scrapeQuizlet(
     screenshotsDir: path.join(process.cwd(), 'screenshots'),
     takeScreenshots,
     url,
+    progressEmitter,
   };
 
   // Check 2Captcha balance
@@ -938,10 +995,11 @@ export async function scrapeQuizlet(
   // Retry loop
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`\n[SCRAPER] 🔄 Attempt ${attempt}/${maxRetries}`);
+    progressEmitter?.attemptStart(attempt, maxRetries);
 
     try {
       // Initialize browser
-      state.browser = await initBrowser(useProxy);
+      state.browser = await initBrowser(useProxy, progressEmitter);
       state.page = await initPage(state.browser, useProxy);
 
       // Navigate to URL
@@ -965,11 +1023,13 @@ export async function scrapeQuizlet(
         throw new Error('Term extraction failed');
       }
 
-      // Validate we got reasonable data
-      if (data.terms.length < 3) {
-        console.warn(`[SCRAPER] ⚠️  Only got ${data.terms.length} terms, might need retry`);
-        throw new Error(`Insufficient terms extracted: ${data.terms.length}`);
+      // Validate we got some data (lowered threshold from 3 to 1)
+      if (data.terms.length < 1) {
+        console.warn(`[SCRAPER] ⚠️  No terms extracted, will retry`);
+        throw new Error(`No terms extracted`);
       }
+
+      console.log(`[SCRAPER] ✅ Successfully extracted ${data.terms.length} terms`);
 
       // Success!
       console.log('\n' + '='.repeat(70));
@@ -978,17 +1038,19 @@ export async function scrapeQuizlet(
       console.log(`[SCRAPER] 📝 Terms: ${data.terms.length}`);
       console.log('='.repeat(70) + '\n');
 
+      progressEmitter?.complete();
       return data;
 
     } catch (error: any) {
       lastError = error;
       console.error(`\n[SCRAPER] ❌ Attempt ${attempt} failed: ${error.message}\n`);
+      progressEmitter?.attemptFailed(attempt, error.message);
 
       if (attempt < maxRetries) {
-        // Minimal delays between retries
-        const delay = Math.min(2000 * attempt, 4000);
-        console.log(`[SCRAPER] ⏳ Waiting ${delay}ms before retry...\n`);
-        await randomDelay(delay, delay + 500);
+        // Fast retry with minimal delay
+        const delay = 1000 * attempt; // 1s, 2s, 3s
+        console.log(`[SCRAPER] ⏳ Retry in ${delay}ms...\n`);
+        await randomDelay(delay, delay + 200);
       }
 
     } finally {
@@ -1010,7 +1072,8 @@ export async function scrapeQuizlet(
   console.error(`[SCRAPER] 💥 Last error: ${lastError?.message}`);
   console.log('='.repeat(70) + '\n');
 
-  throw new Error(
-    `Failed to scrape Quizlet after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`
-  );
+  const errorMessage = `Failed to scrape Quizlet after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`;
+  progressEmitter?.error(errorMessage, { lastError: lastError?.message });
+
+  throw new Error(errorMessage);
 }
