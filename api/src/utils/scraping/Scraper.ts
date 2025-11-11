@@ -1,912 +1,937 @@
-
 import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import * as fs from 'fs';
+import * as path from 'path';
 import { TwoCaptchaSolver } from './TwoCaptchaSolver';
 
-// Add stealth plugin
 puppeteer.use(StealthPlugin());
 
-interface QuizletTerm {
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface QuizletTerm {
   term: string;
   definition: string;
 }
 
-interface QuizletData {
+export interface QuizletData {
   title: string;
   terms: QuizletTerm[];
 }
 
-// Pool of realistic user agents to rotate
+export interface ScrapeOptions {
+  takeScreenshots?: boolean;
+  maxRetries?: number;
+  useProxy?: boolean;
+}
+
+interface ScraperState {
+  browser: Browser | null;
+  page: Page | null;
+  captchaSolver: TwoCaptchaSolver;
+  screenshotsDir: string;
+  takeScreenshots: boolean;
+  url: string;
+}
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
 ];
+
+const PROXY_CONFIG = {
+  username: 'u613ad942568805c2-zone-custom',
+  password: 'u613ad942568805c2',
+  dns: '170.106.118.114',
+  port: 2334
+};
+
+const BROWSER_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-blink-features=AutomationControlled',
+  '--disable-dev-shm-usage',
+  '--disable-web-security',
+  '--disable-features=IsolateOrigins,site-per-process',
+  '--window-size=1920,1080',
+  '--disable-infobars',
+  '--disable-notifications',
+];
+
+const TIMEOUTS = {
+  navigation: 30000, // Reduced since we're not waiting for networkidle
+  captchaSolve: 120000,
+  termExpansion: 20000,
+  pageLoad: 15000,
+  contentReady: 10000, // Time to wait for main content
+};
+
+// ============================================================================
+// UTILITIES
+// ============================================================================
 
 function getRandomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-export async function scrapeQuizlet(url: string): Promise<QuizletData> {
-  let browser: Browser | null = null;
-  let page: Page | null = null;
+function randomDelay(min: number, max: number): Promise<void> {
+  const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
 
-  // Initialize 2Captcha solver
-  const captchaSolver = new TwoCaptchaSolver();
-
-  // Check balance if enabled
-  if (captchaSolver.isEnabled()) {
-    await captchaSolver.getBalance();
-  }
+async function saveScreenshot(state: ScraperState, name: string): Promise<string | null> {
+  if (!state.takeScreenshots || !state.page) return null;
 
   try {
-    // Build launch args
-    const launchArgs = [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled',
-      '--window-size=1920,1080',
-      '--disable-infobars',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      '--disable-sync',
-      '--no-first-run',
-      '--disable-default-apps',
-      '--disable-gpu',
-      '--single-process',
-      '--no-zygote',
-      // Enhanced fingerprinting resistance
-      '--disable-features=IsolateOrigins,site-per-process',
-      '--disable-site-isolation-trials',
-      '--lang=en-US,en',
-      '--font-render-hinting=none',
-      // Allow all third-party iframes and disable blocking
-      '--disable-web-security',
-      '--disable-features=IsolateOrigins',
-      '--disable-site-isolation-for-policy',
-      `--proxy-server=https://170.106.118.114:2334:u613ad942568805c2-zone-custom:u613ad942568805c2`
+    if (!fs.existsSync(state.screenshotsDir)) {
+      fs.mkdirSync(state.screenshotsDir, { recursive: true });
+    }
+
+    const safeName = name.replace(/[^a-z0-9-_]/gi, '_');
+    const filename = `${safeName}-${Date.now()}.png`;
+    const fullPath = path.join(state.screenshotsDir, filename);
+
+    await state.page.screenshot({
+      path: fullPath as `${string}.png`,
+      fullPage: true
+    });
+
+    console.log(`[SCREENSHOT] 📸 Saved: ${filename}`);
+    return fullPath;
+  } catch (error: any) {
+    console.warn(`[SCREENSHOT] ⚠️  Failed: ${error.message}`);
+    return null;
+  }
+}
+
+// ============================================================================
+// BROWSER INITIALIZATION
+// ============================================================================
+
+async function initBrowser(useProxy: boolean): Promise<Browser> {
+  console.log('[BROWSER] 🚀 Launching...');
+
+  const args = [...BROWSER_ARGS];
+  if (useProxy) {
+    args.push(`--proxy-server=http://${PROXY_CONFIG.dns}:${PROXY_CONFIG.port}`);
+    console.log(`[BROWSER] 🌐 Using proxy: ${PROXY_CONFIG.dns}:${PROXY_CONFIG.port}`);
+  }
+
+  const browser = await puppeteer.launch({
+    headless: true,
+    args,
+    ignoreDefaultArgs: ['--enable-automation'],
+    defaultViewport: null,
+  });
+
+  console.log('[BROWSER] ✅ Launched successfully');
+  return browser;
+}
+
+async function initPage(browser: Browser, useProxy: boolean): Promise<Page> {
+  console.log('[PAGE] 📄 Creating new page...');
+
+  const page = await browser.newPage();
+
+  // Block unnecessary resources to speed up loading
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    const resourceType = request.resourceType();
+    const url = request.url();
+
+    // Block ads, analytics, and other non-essential resources
+    const blockedDomains = [
+      'doubleclick.net',
+      'googlesyndication.com',
+      'googleadservices.com',
+      'google-analytics.com',
+      'googletagmanager.com',
+      'facebook.com/tr',
+      'connect.facebook.net',
+      'analytics.',
+      'ads.',
+      'adservice.',
+      'advertising.',
+      'cdn.taboola.com',
+      'outbrain.com'
     ];
 
-    // Add proxy if configured via environment variables
-    if (process.env.PROXY_SERVER) {
-      console.log(`🌐 Using proxy: ${process.env.PROXY_SERVER}`);
-      launchArgs.push(`--proxy-server=${process.env.PROXY_SERVER}`);
+    const shouldBlock =
+      blockedDomains.some(domain => url.includes(domain)) ||
+      resourceType === 'font' || // Block fonts to speed up
+      (resourceType === 'image' && !url.includes('quizlet')); // Block external images but keep Quizlet's
+
+    if (shouldBlock) {
+      request.abort();
+    } else {
+      request.continue();
+    }
+  });
+
+  console.log('[PAGE] 🚫 Resource blocking enabled');
+
+  // Authenticate proxy if enabled
+  if (useProxy) {
+    await page.authenticate({
+      username: PROXY_CONFIG.username,
+      password: PROXY_CONFIG.password,
+    });
+    console.log('[PAGE] 🔐 Proxy authenticated');
+  }
+
+  // Set user agent
+  const userAgent = getRandomUserAgent();
+  await page.setUserAgent(userAgent);
+  console.log(`[PAGE] 🎭 User agent set`);
+
+  // Set viewport
+  await page.setViewport({ width: 1920, height: 1080 });
+
+  // Inject stealth scripts
+  await page.evaluateOnNewDocument(() => {
+    // Override navigator properties
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => false,
+    });
+
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['en-US', 'en'],
+    });
+
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [1, 2, 3, 4, 5],
+    });
+
+    Object.defineProperty(navigator, 'platform', {
+      get: () => 'Win32',
+    });
+
+    // Mock chrome runtime
+    (window as any).chrome = {
+      runtime: {},
+    };
+
+    // Override permissions
+    const originalQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (parameters: any) =>
+      parameters.name === 'notifications'
+        ? Promise.resolve({ state: 'denied' } as PermissionStatus)
+        : originalQuery(parameters);
+  });
+
+  console.log('[PAGE] ✅ Initialized with stealth scripts');
+  return page;
+}
+
+// ============================================================================
+// HUMAN BEHAVIOR SIMULATION
+// ============================================================================
+
+async function simulateHumanBehavior(page: Page): Promise<void> {
+  console.log('[HUMAN] 🤖 Simulating human behavior...');
+
+  try {
+    // Shorter, more realistic mouse movements
+    for (let i = 0; i < 5; i++) {
+      const x = Math.floor(Math.random() * 1920);
+      const y = Math.floor(Math.random() * 1080);
+      await page.mouse.move(x, y, { steps: Math.floor(Math.random() * 5) + 3 });
+      await randomDelay(50, 150);
     }
 
-    browser = await puppeteer.launch({
-      headless: true,
-      args: launchArgs,
-      executablePath: process.env.CHROME_PATH || undefined,
-      ignoreDefaultArgs: ['--enable-automation']
+    // Random scroll
+    await page.evaluate(async () => {
+      const scrolls = Math.floor(Math.random() * 2) + 1;
+      for (let i = 0; i < scrolls; i++) {
+        window.scrollBy(0, Math.floor(Math.random() * 300) + 100);
+        await new Promise(r => setTimeout(r, Math.random() * 300 + 100));
+      }
     });
 
-    page = await browser.newPage();
+    console.log('[HUMAN] ✅ Behavior simulation complete');
+  } catch (error) {
+    console.warn('[HUMAN] ⚠️  Simulation failed (non-critical)');
+  }
+}
 
-    const proxy_username = 'u613ad942568805c2-zone-custom';
-    const proxy_password = 'u613ad942568805c2';
-    const PROXY_DNS = '170.106.118.114';
-    const PROXY_PORT = 2334;
+// ============================================================================
+// CAPTCHA HANDLING
+// ============================================================================
 
-    // Authenticate proxy if credentials are provided
-    if (proxy_username && proxy_password) {
-      await page.authenticate({
-        username: proxy_username,
-        password: proxy_password
-      });
-    }
+async function handleCaptcha(state: ScraperState): Promise<boolean> {
+  console.log('[CAPTCHA] 🔍 Checking for captcha...');
 
-    // Allow all third-party content and disable content blocking
-    await page.setBypassCSP(true);
+  if (!state.page) return false;
 
-    // Set a randomized user agent for better rotation
-    const selectedUserAgent = getRandomUserAgent();
-    console.log(`🎭 Using User-Agent: ${selectedUserAgent}`);
-    await page.setUserAgent(selectedUserAgent);
-    await page.setViewport({
-      width: 1920,
-      height: 1080,
-      deviceScaleFactor: 1,
-      hasTouch: false,
-      isLandscape: true,
-      isMobile: false
-    });
+  // Wait a bit for captcha to potentially appear
+  await randomDelay(1500, 2000);
 
-    // Set extra headers to appear more like a real browser
-    await page.setExtraHTTPHeaders({
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="131", "Google Chrome";v="131"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"macOS"'
-    });
+  // Detect captcha
+  const detection = await state.captchaSolver.detectCaptcha(state.page);
 
-    // Comprehensive anti-detection measures with enhanced fingerprinting
-    await page.evaluateOnNewDocument(() => {
-      // Override the navigator.webdriver property
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => false,
-      });
+  if (!detection.detected) {
+    console.log('[CAPTCHA] ✅ No captcha detected');
+    return true;
+  }
 
-      // Add mouse movement tracking to appear more human
-      let mouseMovements: any[] = [];
-      let clickCount = 0;
-      let keyPresses = 0;
+  console.log(`[CAPTCHA] ⚠️  Detected: ${detection.type}`);
+  await saveScreenshot(state, `captcha-detected-${detection.type}`);
 
-      // Track mouse movements
-      document.addEventListener('mousemove', (e) => {
-        mouseMovements.push({ x: e.clientX, y: e.clientY, time: Date.now() });
-        if (mouseMovements.length > 100) {
-          mouseMovements.shift();
-        }
-      });
+  // Solve captcha
+  const solution = await state.captchaSolver.solveCaptcha(state.url, detection);
 
-      document.addEventListener('click', () => {
-        clickCount++;
-      });
+  if (!solution.success) {
+    console.error(`[CAPTCHA] ❌ Failed to solve: ${solution.error}`);
+    await saveScreenshot(state, 'captcha-failed');
+    return false;
+  }
 
-      document.addEventListener('keydown', () => {
-        keyPresses++;
-      });
+  // Inject solution
+  const injected = await state.captchaSolver.injectSolution(state.page, solution);
 
-      // Override automation detection properties
-      (window as any).isAutomated = false;
-      (navigator as any).automation = undefined;
+  if (!injected) {
+    console.error('[CAPTCHA] ❌ Failed to inject solution');
+    return false;
+  }
 
-      // Mock chrome runtime
-      (window as any).chrome = {
-        runtime: {},
-        loadTimes: function() {},
-        csi: function() {},
-        app: {}
-      };
+  // Wait for page to respond to captcha solution
+  console.log('[CAPTCHA] ⏳ Waiting for page to process solution...');
+  await randomDelay(2000, 3000);
 
-      // Override permissions
-      const originalQuery = window.navigator.permissions.query;
-      // @ts-ignore
-      window.navigator.permissions.query = (parameters) => (
-        parameters.name === 'notifications' ?
-          Promise.resolve({ state: Notification.permission } as PermissionStatus) :
-          originalQuery(parameters)
-      );
+  // Wait for navigation or content to change (use domcontentloaded to avoid waiting for ads)
+  await Promise.race([
+    state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {}),
+    randomDelay(4000, 5000)
+  ]);
 
-      // Enhanced plugins list to appear more realistic
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => ({
-          length: 5,
-          0: { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-          1: { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-          2: { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
-          3: { name: 'Chromium PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-          4: { name: 'Microsoft Edge PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-        }),
-      });
+  // Give the page a moment to settle
+  await randomDelay(1000, 1500);
 
-      // Override languages
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en'],
-      });
+  await saveScreenshot(state, 'captcha-solved');
 
-      // Add platform info (randomize between common platforms)
-      const platforms = ['Win32', 'MacIntel', 'Linux x86_64'];
-      Object.defineProperty(navigator, 'platform', {
-        get: () => platforms[Math.floor(Math.random() * platforms.length)],
-      });
+  // Verify captcha is gone
+  await randomDelay(1000, 1500);
+  const recheck = await state.captchaSolver.detectCaptcha(state.page);
 
-      // Add hardware concurrency (randomize to appear more natural)
-      Object.defineProperty(navigator, 'hardwareConcurrency', {
-        get: () => [4, 8, 12, 16][Math.floor(Math.random() * 4)],
-      });
+  if (recheck.detected) {
+    console.warn('[CAPTCHA] ⚠️  Captcha still present after solving, may need retry');
+    return false;
+  }
 
-      // Add device memory
-      Object.defineProperty(navigator, 'deviceMemory', {
-        get: () => [4, 8, 16][Math.floor(Math.random() * 3)],
-      });
+  console.log('[CAPTCHA] ✅ Successfully bypassed');
+  return true;
+}
 
-      // Mock WebGL vendor and renderer to avoid headless detection
-      const getParameter = WebGLRenderingContext.prototype.getParameter;
-      WebGLRenderingContext.prototype.getParameter = function(parameter) {
-        if (parameter === 37445) {
-          return 'Intel Inc.';
-        }
-        if (parameter === 37446) {
-          return 'Intel Iris OpenGL Engine';
-        }
-        return getParameter.call(this, parameter);
-      };
+// ============================================================================
+// PAGE NAVIGATION
+// ============================================================================
 
-      // Override WebGL2 as well
-      const getParameter2 = WebGL2RenderingContext.prototype.getParameter;
-      WebGL2RenderingContext.prototype.getParameter = function(parameter) {
-        if (parameter === 37445) {
-          return 'Intel Inc.';
-        }
-        if (parameter === 37446) {
-          return 'Intel Iris OpenGL Engine';
-        }
-        return getParameter2.call(this, parameter);
-      };
+async function navigateToUrl(state: ScraperState): Promise<boolean> {
+  if (!state.page) return false;
 
-      // Add more realistic battery API
-      Object.defineProperty(navigator, 'getBattery', {
-        value: () => Promise.resolve({
-          charging: true,
-          chargingTime: 0,
-          dischargingTime: Infinity,
-          level: 1,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          dispatchEvent: () => true
-        })
-      });
+  console.log(`[NAV] 🔗 Navigating to: ${state.url}`);
 
-      // Mock connection API
-      Object.defineProperty(navigator, 'connection', {
-        get: () => ({
-          effectiveType: '4g',
-          rtt: 100,
-          downlink: 10,
-          saveData: false
-        })
-      });
-
-      // Override headless-specific properties
-      Object.defineProperty(navigator, 'maxTouchPoints', {
-        get: () => 0
-      });
-
-      // Mock media devices
-      Object.defineProperty(navigator, 'mediaDevices', {
-        get: () => ({
-          enumerateDevices: () => Promise.resolve([
-            { deviceId: 'default', kind: 'audioinput', label: 'Default', groupId: 'group1' },
-            { deviceId: 'default', kind: 'audiooutput', label: 'Default', groupId: 'group1' },
-            { deviceId: 'default', kind: 'videoinput', label: 'Default', groupId: 'group2' }
-          ]),
-          getUserMedia: () => Promise.resolve({} as MediaStream),
-          getSupportedConstraints: () => ({})
-        })
-      });
-
-      // Add screen properties that look realistic
-      Object.defineProperty(window.screen, 'availWidth', { get: () => 1920 });
-      Object.defineProperty(window.screen, 'availHeight', { get: () => 1080 });
-      Object.defineProperty(window.screen, 'width', { get: () => 1920 });
-      Object.defineProperty(window.screen, 'height', { get: () => 1080 });
-      Object.defineProperty(window.screen, 'colorDepth', { get: () => 24 });
-      Object.defineProperty(window.screen, 'pixelDepth', { get: () => 24 });
-
-      // Mock notification permissions
-      Object.defineProperty(Notification, 'permission', {
-        get: () => 'default'
-      });
-    });
-
-    // Navigate to the page
-    console.log('Navigating to URL...');
-    await page.goto(url, {
+  try {
+    // Use domcontentloaded instead of networkidle2 to avoid waiting for ads
+    const response = await state.page.goto(state.url, {
       waitUntil: 'domcontentloaded',
-      timeout: 90000
+      timeout: TIMEOUTS.navigation,
     });
 
-    // Take initial screenshot for debugging
-    console.log('Taking initial screenshot...');
-    const initialScreenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
-    console.log('\n=== INITIAL PAGE SCREENSHOT (Base64) ===');
-    console.log(initialScreenshot);
-    console.log('=== END SCREENSHOT ===\n');
-
-    // Simulate extensive mouse movement to build behavior profile
-    console.log('Building human behavior profile with mouse movements...');
-    for (let i = 0; i < 10; i++) {
-      const x = Math.random() * 1920;
-      const y = Math.random() * 1080;
-      await page.mouse.move(x, y, { steps: Math.floor(Math.random() * 10) + 5 });
-      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+    if (!response) {
+      throw new Error('No response received');
     }
 
-    // Add some random clicks to build interaction history
-    await page.mouse.click(500 + Math.random() * 100, 300 + Math.random() * 100);
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
-    await page.mouse.click(700 + Math.random() * 100, 400 + Math.random() * 100);
-    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 300));
+    const status = response.status();
+    console.log(`[NAV] 📡 Response status: ${status}`);
 
-    // Add keyboard events to simulate real user
-    await page.keyboard.press('Tab');
-    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 100));
+    if (status >= 400) {
+      throw new Error(`HTTP ${status}`);
+    }
 
-    // Simulate scrolling behavior
-    await page.evaluate(() => {
-      window.scrollBy(0, 100);
+    // Wait for the page to be interactive
+    await state.page.waitForFunction(
+      () => document.readyState === 'interactive' || document.readyState === 'complete',
+      { timeout: 5000 }
+    ).catch(() => {});
+
+    // Give React/SPA more time to initialize and render
+    await randomDelay(2000, 3000);
+
+    // Check if page has actual content (not a white screen or error page)
+    const pageCheck = await state.page.evaluate(() => {
+      const body = document.body;
+      const bodyText = body?.innerText || '';
+      const bodyHTML = body?.innerHTML || '';
+
+      return {
+        hasBody: !!body,
+        bodyTextLength: bodyText.length,
+        bodyHTMLLength: bodyHTML.length,
+        title: document.title,
+        isErrorPage: bodyText.includes('Access denied') ||
+                    bodyText.includes('403') ||
+                    bodyText.includes('blocked') ||
+                    bodyText.includes('Checking your browser'),
+        hasMainContent: !!(
+          document.querySelector('[class*="SetPage"]') ||
+          document.querySelector('[class*="StudiableContainer"]') ||
+          document.querySelector('main') ||
+          document.querySelector('[role="main"]') ||
+          document.querySelector('#root > div') ||
+          document.querySelector('body > div')
+        )
+      };
     });
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
-    await page.evaluate(() => {
-      window.scrollBy(0, -50);
+
+    console.log('[NAV] 📄 Page check:', {
+      title: pageCheck.title,
+      textLength: pageCheck.bodyTextLength,
+      htmlLength: pageCheck.bodyHTMLLength,
+      hasContent: pageCheck.hasMainContent,
+      isError: pageCheck.isErrorPage
     });
-    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 300));
 
-    // Check if we hit Cloudflare challenge and handle it
-    let cloudflareDetected = false;
-    let waitAttempts = 0;
-    const maxWaitAttempts = 30; // Wait up to ~150 seconds for Cloudflare
+    // Check for white screen or no content
+    if (pageCheck.bodyTextLength < 100 && pageCheck.bodyHTMLLength < 500) {
+      await saveScreenshot(state, 'white-screen');
+      throw new Error('Page appears to be blank (white screen)');
+    }
 
-    do {
-      cloudflareDetected = await page.evaluate(() => {
-        const title = document.title.toLowerCase();
-        const bodyText = document.body.innerText.toLowerCase();
-        const html = document.documentElement.innerHTML.toLowerCase();
+    // Check for error pages
+    if (pageCheck.isErrorPage) {
+      await saveScreenshot(state, 'error-page');
+      throw new Error('Detected error page or access denied');
+    }
 
-        // Check for Cloudflare challenge indicators
-        const isChallenge = title.includes('one more step') ||
-               title.includes('just a moment') ||
-               title.includes('attention required') ||
-               bodyText.includes('checking your browser') ||
-               bodyText.includes('verify you are human') ||
-               bodyText.includes('enable javascript and cookies') ||
-               bodyText.includes('unblock') ||
-               bodyText.includes('challenges.cloudflare.com') ||
-               html.includes('cloudflare') ||
-               html.includes('cf-challenge') ||
-               html.includes('cf_chl_opt');
+    // Wait for Quizlet's main content with more lenient timeout
+    if (!pageCheck.hasMainContent) {
+      console.log('[NAV] ⏳ Waiting for main content to appear...');
 
-        // Log what we found for debugging
-        if (isChallenge) {
-          console.log('Challenge detection details:');
-          console.log('- Title:', title);
-          console.log('- Body includes "unblock":', bodyText.includes('unblock'));
-          console.log('- Body includes "challenges.cloudflare.com":', bodyText.includes('challenges.cloudflare.com'));
-        }
+      await state.page.waitForFunction(
+        () => {
+          // Very lenient check - just make sure there's SOMETHING
+          return !!(
+            document.querySelector('[class*="SetPage"]') ||
+            document.querySelector('[class*="StudiableContainer"]') ||
+            document.querySelector('main') ||
+            document.querySelector('[role="main"]') ||
+            document.querySelector('#root > div') ||
+            document.querySelector('body > div > div') ||
+            (document.body && document.body.children.length > 0)
+          );
+        },
+        { timeout: 15000 }
+      ).catch(() => {
+        console.warn('[NAV] ⚠️  Timeout waiting for content, but continuing...');
+      });
+    }
 
-        return isChallenge;
+    // Final check after waiting
+    const finalCheck = await state.page.evaluate(() => {
+      return {
+        bodyText: document.body?.innerText?.substring(0, 200) || '',
+        hasElements: document.body?.children?.length || 0
+      };
+    });
+
+    console.log('[NAV] 📋 Final check:', {
+      elements: finalCheck.hasElements,
+      preview: finalCheck.bodyText.substring(0, 100)
+    });
+
+    await saveScreenshot(state, 'initial-load');
+    console.log('[NAV] ✅ Navigation successful');
+    return true;
+
+  } catch (error: any) {
+    console.error(`[NAV] ❌ Navigation failed: ${error.message}`);
+
+    // Try to get page info for debugging
+    if (state.page) {
+      try {
+        const debugInfo = await state.page.evaluate(() => ({
+          url: window.location.href,
+          title: document.title,
+          bodyLength: document.body?.innerHTML?.length || 0,
+          readyState: document.readyState
+        }));
+        console.error('[NAV] 🔍 Debug info:', debugInfo);
+      } catch {}
+    }
+
+    await saveScreenshot(state, 'navigation-error');
+    return false;
+  }
+}
+
+// ============================================================================
+// TERM EXTRACTION
+// ============================================================================
+
+async function waitForTerms(page: Page): Promise<boolean> {
+  console.log('[TERMS] ⏳ Waiting for terms to load...');
+
+  try {
+    // Wait for any term-related elements to appear with multiple selectors
+    const termSelectors = [
+      '[class*="TermText"]',
+      '[class*="SetPageTerm"]',
+      '.SetPageTerm-term',
+      '.SetPageTerm-definition',
+      '[data-testid*="term"]',
+      '[class*="term-container"]'
+    ];
+
+    // Try each selector
+    let found = false;
+    for (const selector of termSelectors) {
+      const element = await page.waitForSelector(selector, { timeout: 3000 }).catch(() => null);
+      if (element) {
+        console.log(`[TERMS] ✅ Found terms using selector: ${selector}`);
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      console.warn('[TERMS] ⚠️  No term elements found with known selectors');
+      return false;
+    }
+
+    // Wait for terms to stabilize (no new terms appearing)
+    let lastCount = 0;
+    let stableCount = 0;
+
+    for (let i = 0; i < 10; i++) {
+      await randomDelay(300, 500);
+
+      const count = await page.evaluate(() => {
+        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
       });
 
-      if (cloudflareDetected) {
-        console.log(`\n🛡️  Cloudflare challenge detected (attempt ${waitAttempts + 1}/${maxWaitAttempts})`);
-
-        // Get page content for debugging
-        const pageContent = await page.evaluate(() => {
-          return {
-            title: document.title,
-            bodyText: document.body.innerText.substring(0, 500),
-            iframeCount: document.querySelectorAll('iframe').length,
-            iframeSrcs: Array.from(document.querySelectorAll('iframe')).map(iframe => iframe.src)
-          };
-        });
-        console.log('Page details:', JSON.stringify(pageContent, null, 2));
-
-        // Take screenshot of the challenge
-        const challengeScreenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
-        console.log('\n=== CLOUDFLARE CHALLENGE SCREENSHOT (Base64) ===');
-        console.log(challengeScreenshot);
-        console.log('=== END SCREENSHOT ===\n');
-
-        // Look for and click the "I'm not a robot" checkbox
-        console.log('Looking for challenge checkbox/button...');
-        const clickedChallenge = await page.evaluate(() => {
-          // Try to find various Cloudflare challenge elements
-          const selectors = [
-            'input[type="checkbox"]',
-            'iframe[src*="challenges.cloudflare.com"]',
-            'iframe[title*="widget"]',
-            '#cf-challenge-running',
-            '.cf-turnstile',
-            '[name="cf-turnstile-response"]',
-            'button[type="submit"]',
-            'input[value="Verify"]',
-            '.challenge-form button'
-          ];
-
-          for (const selector of selectors) {
-            const element = document.querySelector(selector) as HTMLElement;
-            if (element) {
-              console.log(`Found element with selector: ${selector}`);
-
-              // If it's an input checkbox, click it
-              if (element.tagName === 'INPUT' && (element as HTMLInputElement).type === 'checkbox') {
-                console.log('Clicking checkbox...');
-                element.click();
-                return true;
-              }
-
-              // If it's a button, click it
-              if (element.tagName === 'BUTTON') {
-                console.log('Clicking button...');
-                element.click();
-                return true;
-              }
-            }
-          }
-
-          return false;
-        });
-
-        // Wait for iframe to appear if needed
-        try {
-          console.log('Waiting for challenge iframe to load...');
-          await page.waitForSelector('iframe[src*="challenges.cloudflare.com"], iframe[src*="turnstile"]', {
-            timeout: 10000
-          }).catch(() => {
-            console.log('No iframe found with waitForSelector, checking existing frames...');
-          });
-        } catch (e) {
-          console.log('Timeout waiting for iframe, continuing anyway...');
-        }
-
-        // Try to find and interact with iframe-based challenges (like Turnstile)
-        const frames = page.frames();
-        console.log(`Found ${frames.length} frames on page`);
-
-        for (const frame of frames) {
-          try {
-            const frameUrl = frame.url();
-            console.log(`Checking frame: ${frameUrl}`);
-
-            if (frameUrl.includes('challenges.cloudflare.com') || frameUrl.includes('turnstile')) {
-              console.log('Found Cloudflare challenge iframe, attempting to interact...');
-
-              // Wait longer for the iframe to fully load
-              await new Promise(resolve => setTimeout(resolve, 3000));
-
-              // Get the iframe element to find its position
-              const iframeElement = await page.$(`iframe[src*="challenges.cloudflare.com"], iframe[src*="turnstile"]`);
-
-              if (iframeElement) {
-                // Get the bounding box of the iframe
-                const box = await iframeElement.boundingBox();
-
-                if (box) {
-                  console.log(`Iframe found at position: x=${box.x}, y=${box.y}, width=${box.width}, height=${box.height}`);
-
-                  // Click in the center of the iframe with realistic coordinates
-                  // Use slightly off-center to appear more human
-                  const clickX = box.x + (box.width / 2) + (Math.random() * 10 - 5);
-                  const clickY = box.y + (box.height / 2) + (Math.random() * 10 - 5);
-
-                  console.log(`Clicking iframe at coordinates: (${clickX.toFixed(2)}, ${clickY.toFixed(2)})`);
-
-                  // Move mouse to the position naturally with human-like curve
-                  const startX = Math.random() * 500;
-                  const startY = Math.random() * 500;
-
-                  await page.mouse.move(startX, startY);
-                  await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
-
-                  // Move in multiple steps to create a curved path
-                  const steps = 20;
-                  for (let i = 1; i <= steps; i++) {
-                    const progress = i / steps;
-                    const currentX = startX + (clickX - startX) * progress;
-                    const currentY = startY + (clickY - startY) * progress;
-                    await page.mouse.move(currentX, currentY);
-                    await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 20));
-                  }
-
-                  // Pause before clicking (human behavior)
-                  await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
-
-                  // Click with realistic timing
-                  await page.mouse.down();
-                  await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
-                  await page.mouse.up();
-
-                  console.log('✅ Clicked on challenge iframe with mouse coordinates');
-
-                  // Wait a moment after click
-                  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-                }
-              }
-
-              // Also try to click inside the iframe content with detailed debugging
-              const iframeContent = await frame.evaluate(() => {
-                const html = document.documentElement.innerHTML;
-                const bodyText = document.body ? document.body.innerText : '';
-
-                // Log what we see in the iframe
-                console.log('Iframe body text:', bodyText.substring(0, 200));
-                console.log('Iframe has checkbox:', !!document.querySelector('input[type="checkbox"]'));
-                console.log('Iframe has button:', !!document.querySelector('button'));
-                console.log('Iframe has clickable div:', !!document.querySelector('[role="button"]'));
-
-                return {
-                  bodyText: bodyText.substring(0, 200),
-                  hasCheckbox: !!document.querySelector('input[type="checkbox"]'),
-                  hasButton: !!document.querySelector('button'),
-                  htmlLength: html.length
-                };
-              }).catch(() => null);
-
-              console.log('Iframe content analysis:', iframeContent);
-
-              // Try multiple clicking strategies
-              const clicked = await frame.evaluate(() => {
-                const checkbox = document.querySelector('input[type="checkbox"]');
-                const button = document.querySelector('button');
-                const clickableDiv = document.querySelector('[role="button"]');
-                const span = document.querySelector('span');
-                const label = document.querySelector('label');
-
-                // Try checkbox
-                if (checkbox) {
-                  console.log('Found and clicking checkbox in iframe...');
-                  (checkbox as HTMLElement).click();
-                  setTimeout(() => (checkbox as HTMLElement).click(), 100); // Double click
-                  return 'checkbox';
-                }
-
-                // Try button
-                if (button) {
-                  console.log('Found and clicking button in iframe...');
-                  (button as HTMLElement).click();
-                  setTimeout(() => (button as HTMLElement).click(), 100); // Double click
-                  return 'button';
-                }
-
-                // Try clickable div
-                if (clickableDiv) {
-                  console.log('Found and clicking clickable div in iframe...');
-                  (clickableDiv as HTMLElement).click();
-                  return 'clickable-div';
-                }
-
-                // Try label (common for Turnstile)
-                if (label) {
-                  console.log('Found and clicking label in iframe...');
-                  (label as HTMLElement).click();
-                  return 'label';
-                }
-
-                // Try span
-                if (span) {
-                  console.log('Found and clicking span in iframe...');
-                  (span as HTMLElement).click();
-                  return 'span';
-                }
-
-                // Last resort: click center of body
-                const body = document.body;
-                if (body) {
-                  console.log('Clicking body center in iframe...');
-                  const rect = body.getBoundingClientRect();
-                  const x = rect.width / 2;
-                  const y = rect.height / 2;
-
-                  const clickEvent = new MouseEvent('click', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true,
-                    clientX: x,
-                    clientY: y
-                  });
-                  body.dispatchEvent(clickEvent);
-                  return 'body-event';
-                }
-
-                return null;
-              }).catch((e) => {
-                console.log('Error clicking in iframe:', e);
-                return null;
-              });
-
-              if (clicked) {
-                console.log(`✅ Successfully clicked challenge element in iframe (type: ${clicked})`);
-              } else {
-                console.log('⚠️ Could not find clickable element in iframe');
-              }
-
-              // Wait longer after clicking to let the challenge process and verify
-              console.log('Waiting for challenge to process...');
-
-              // Wait up to 15 seconds, checking status every 3 seconds
-              let processingAttempts = 0;
-              const maxProcessingAttempts = 2;
-              let stillProcessing = true;
-
-              while (processingAttempts < maxProcessingAttempts && stillProcessing) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                processingAttempts++;
-
-                // Check if challenge was solved
-                const challengeStatus = await frame.evaluate(() => {
-                  const bodyText = document.body ? document.body.innerText.toLowerCase() : '';
-                  const hasSpinner = document.querySelector('[class*="spinner"]') ||
-                                    document.querySelector('[class*="loading"]') ||
-                                    document.querySelector('svg[class*="animate"]');
-
-                  return {
-                    bodyText: bodyText.substring(0, 150),
-                    hasSuccess: bodyText.includes('success') || bodyText.includes('verified'),
-                    hasError: bodyText.includes('error') || bodyText.includes('failed'),
-                    hasStuck: bodyText.includes('stuck here'),
-                    hasFeedback: bodyText.includes('send feedback'),
-                    hasSpinner: !!hasSpinner
-                  };
-                }).catch(() => ({
-                  bodyText: '',
-                  hasSuccess: false,
-                  hasError: false,
-                  hasStuck: false,
-                  hasFeedback: false,
-                  hasSpinner: false
-                }));
-
-                console.log(`Challenge status (attempt ${processingAttempts}/${maxProcessingAttempts}):`, challengeStatus);
-
-                // If we see success, stop waiting
-                if (challengeStatus.hasSuccess) {
-                  console.log('✅ Challenge solved successfully!');
-                  stillProcessing = false;
-                  break;
-                }
-
-                // If stuck, this likely means bot detection - try 2Captcha if enabled
-                if (challengeStatus.hasStuck || challengeStatus.hasFeedback) {
-                  console.log('⚠️ Challenge appears stuck - Cloudflare may have detected automation');
-
-                  if (captchaSolver.isEnabled()) {
-                    console.log('🔄 Attempting to solve with 2Captcha service...');
-
-                    // Get the page HTML to extract site key
-                    const pageHtml = await page.content();
-                    const siteKey = captchaSolver.extractSiteKey(pageHtml);
-
-                    if (siteKey) {
-                      const solution = await captchaSolver.solveTurnstile(url, siteKey);
-
-                      if (solution.success && solution.token) {
-                        console.log('✅ Got solution from 2Captcha, injecting token...');
-
-                        // Inject the solution token into the page
-                        const injected = await frame.evaluate((token) => {
-                          // Find the Turnstile response input
-                          const responseInput = document.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement;
-                          if (responseInput) {
-                            responseInput.value = token;
-                            console.log('Injected 2Captcha token into response input');
-
-                            // Trigger change event
-                            const event = new Event('change', { bubbles: true });
-                            responseInput.dispatchEvent(event);
-
-                            // Try to find and click submit button
-                            const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-                            if (submitButton) {
-                              submitButton.click();
-                              console.log('Clicked submit button');
-                            }
-
-                            return true;
-                          }
-                          return false;
-                        }, solution.token).catch(() => false);
-
-                        if (injected) {
-                          console.log('✅ Token injected successfully, waiting for verification...');
-                          await new Promise(resolve => setTimeout(resolve, 3000));
-                        } else {
-                          console.log('⚠️ Could not inject token - response input not found');
-                        }
-                      } else {
-                        console.log('❌ 2Captcha failed to solve:', solution.error);
-                        console.log('💡 Recommendation: Check your 2Captcha balance and API key');
-                      }
-                    } else {
-                      console.log('⚠️ Could not find Turnstile site key in page HTML');
-                    }
-                  } else {
-                    console.log('💡 Recommendation: Use 2Captcha service or a residential proxy');
-                    console.log('   Set TWOCAPTCHA_API_KEY environment variable to enable 2Captcha');
-                  }
-
-                  stillProcessing = false;
-                  break;
-                }
-
-                // If no spinner and no stuck message, might have passed
-                if (!challengeStatus.hasSpinner && !challengeStatus.hasStuck) {
-                  console.log('✅ No spinner detected, challenge may be complete');
-                  stillProcessing = false;
-                  break;
-                }
-
-                console.log('Challenge still processing, waiting...');
-              }
-
-              if (stillProcessing) {
-                console.log('⏱️ Challenge processing timed out after 15 seconds');
-              }
-            }
-          } catch (e) {
-            // Frame might not be accessible, continue
-            console.log(`Could not interact with frame: ${e}`);
-          }
-        }
-
-        if (clickedChallenge) {
-          console.log('✅ Clicked challenge element');
-        } else {
-          console.log('⚠️  No clickable challenge element found');
-        }
-
-        // Check if we've actually passed the challenge on the main page
-        const mainPagePassed = await page.evaluate(() => {
-          const bodyText = document.body.innerText.toLowerCase();
-          const title = document.title.toLowerCase();
-
-          // Check if we're now on the actual content page
-          const hasQuizletContent = bodyText.includes('terms in this set') ||
-                                   bodyText.includes('quizlet') ||
-                                   document.querySelectorAll('[class*="TermText"]').length > 0;
-
-          const noChallengeText = !bodyText.includes('one more step') &&
-                                 !bodyText.includes('checking your browser') &&
-                                 !bodyText.includes('unblock');
-
-          return hasQuizletContent || (noChallengeText && !title.includes('just a moment'));
-        });
-
-        if (mainPagePassed) {
-          console.log('✅ Challenge appears to be passed! Main page shows content.');
-          cloudflareDetected = false;
+      if (count === lastCount && count > 0) {
+        stableCount++;
+        if (stableCount >= 2) {
+          console.log(`[TERMS] ✅ Terms stable at ${count} elements`);
           break;
         }
-
-        // Simulate realistic mouse movement during the wait
-        const randomX = 300 + Math.floor(Math.random() * 700);
-        const randomY = 200 + Math.floor(Math.random() * 600);
-        await page.mouse.move(randomX, randomY);
-
-        // Wait before checking again (reduced since we're checking more frequently)
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        waitAttempts++;
+      } else {
+        stableCount = 0;
+        lastCount = count;
       }
-    } while (cloudflareDetected && waitAttempts < maxWaitAttempts);
-
-    if (cloudflareDetected) {
-      console.error('\n❌ Failed to bypass Cloudflare after maximum wait time');
-
-      // Take final screenshot for debugging
-      const finalScreenshot = await page.screenshot({ encoding: 'base64', fullPage: true });
-      console.log('\n=== FINAL CLOUDFLARE CHALLENGE SCREENSHOT (Base64) ===');
-      console.log(finalScreenshot);
-      console.log('=== END SCREENSHOT ===\n');
-
-      throw new Error('Failed to bypass Cloudflare challenge');
     }
 
-    console.log('✅ Successfully passed Cloudflare challenge (if any)');
+    return true;
 
-    // Additional wait for content to load with a more human-like delay
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
-    
-    // Scroll down slowly to simulate human behavior
-    await page.evaluate(() => {
-      return new Promise<void>((resolve) => {
-        let totalHeight = 0;
-        const distance = 100;
-        const timer = setInterval(() => {
-          const scrollHeight = document.body.scrollHeight;
-          window.scrollBy(0, distance);
-          totalHeight += distance;
+  } catch (error) {
+    console.warn('[TERMS] ⚠️  Terms may not have loaded properly');
+    return false;
+  }
+}
 
-          if (totalHeight >= scrollHeight) {
-            clearInterval(timer);
-            resolve();
-          }
-        }, 100);
-      });
+async function expandAllTerms(page: Page): Promise<void> {
+  console.log('[TERMS] 📈 Attempting to expand all terms...');
+
+  try {
+    // First, scroll to bottom to trigger lazy loading
+    await page.evaluate(async () => {
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise(r => setTimeout(r, 500));
+      window.scrollTo(0, 0);
     });
 
-    // Click "See more" button repeatedly to load all terms
-    let clickedButton = true;
-    let clickCount = 0;
+    await randomDelay(500, 800);
 
-    while (clickedButton && clickCount < 50) {
-      clickedButton = await page.evaluate(() => {
-        const button = document.querySelector('button[aria-label="see more"]') ||
-                      document.querySelector('button[title="See more"]');
+    // Keep clicking "See more" until there are no more buttons or terms stop increasing
+    let totalClicks = 0;
+    let lastCount = 0;
+    const maxClicks = 50; // Safety limit to prevent infinite loops
 
-        if (button) {
-          (button as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    while (totalClicks < maxClicks) {
+      // Try to find and click "See more" / "See more" button
+      const clickResult = await page.evaluate(() => {
+        // Helper function to check if button is visible
+        const isButtonVisible = (el: HTMLElement): boolean => {
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== 'none' &&
+                 style.visibility !== 'hidden' &&
+                 style.opacity !== '0' &&
+                 rect.width > 0 &&
+                 rect.height > 0 &&
+                 !el.hasAttribute('disabled');
+        };
 
-          return new Promise<boolean>((resolve) => {
-            setTimeout(() => {
-              if (button && (button as HTMLElement).offsetParent !== null) {
-                (button as HTMLElement).click();
-                resolve(true);
-              } else {
-                resolve(false);
-              }
-            }, 500);
-          });
+        // Search all buttons for text content (prioritize "see more")
+        const allButtons = Array.from(document.querySelectorAll('button'));
+
+        // First pass: look specifically for "see more" or "see more"
+        for (const button of allButtons) {
+          const text = button.textContent?.toLowerCase().trim() || '';
+
+          if ((text === 'see more' || text === 'see more' || text === 'load more') && isButtonVisible(button)) {
+            button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            button.click();
+            return { clicked: true, buttonText: text };
+          }
         }
 
-        return false;
+        // Second pass: look for buttons containing these phrases
+        for (const button of allButtons) {
+          const text = button.textContent?.toLowerCase() || '';
+
+          if ((text.includes('See more') || text.includes('see more') || text.includes('load more')) && isButtonVisible(button)) {
+            button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            button.click();
+            return { clicked: true, buttonText: text.trim() };
+          }
+        }
+
+        // Third pass: try specific selectors
+        const specificSelectors = [
+          'button[aria-label*="more"]',
+          'button[title*="more"]',
+          'button[data-testid="show-more"]',
+          '.SetPage-loadMoreButton',
+          '.ShowMoreButton'
+        ];
+
+        for (const selector of specificSelectors) {
+          try {
+            const buttons = Array.from(document.querySelectorAll(selector));
+            for (const button of buttons) {
+              const el = button as HTMLElement;
+              if (isButtonVisible(el)) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.click();
+                const text = el.textContent?.toLowerCase().trim() || '';
+                return { clicked: true, buttonText: text };
+              }
+            }
+          } catch {}
+        }
+
+        return { clicked: false };
       });
 
-      if (clickedButton) {
-        clickCount++;
-        // Random delay between 1-2.5 seconds to appear more human
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+      if (!clickResult.clicked) {
+        console.log('[TERMS] ℹ️  No more "See more" buttons found');
+        break;
       }
+
+      totalClicks++;
+      console.log(`[TERMS] 🖱️  Clicked "See more" button #${totalClicks} (${clickResult.buttonText})`);
+
+      // Wait for new terms to load
+      await randomDelay(800, 1200);
+
+      // Check if term count increased
+      const currentCount = await page.evaluate(() => {
+        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+      });
+
+      console.log(`[TERMS] 📊 Term elements: ${currentCount} (was ${lastCount})`);
+
+      // If count hasn't increased after clicking, we're done
+      if (currentCount === lastCount) {
+        console.log('[TERMS] ✅ No new terms loaded, expansion complete');
+        break;
+      }
+
+      lastCount = currentCount;
+
+      // Scroll to bottom again to trigger any lazy loading
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+      await randomDelay(300, 500);
     }
 
-    console.log("here");
-    // await page.waitForSelector('[class*="TermText"]', { timeout: 2000 });
+    if (totalClicks >= maxClicks) {
+      console.warn(`[TERMS] ⚠️  Reached max clicks (${maxClicks}), stopping`);
+    }
 
-    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    // Final count
+    const finalCount = await page.evaluate(() => {
+      return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+    });
 
-    const quizletData = await page.evaluate(() => {
-      const results: Array<{ term: string; definition: string }> = [];
-      const elements = document.querySelectorAll('[class*="TermText"]');
+    console.log(`[TERMS] ✅ Expansion complete. Total clicks: ${totalClicks}, Final term elements: ${finalCount}`);
 
-      console.log(elements);
+  } catch (error: any) {
+    console.warn(`[TERMS] ⚠️  Expansion error (non-critical): ${error.message}`);
+  }
+}
 
-      let title = 'Untitled Set';
-      const selectors = [
+async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
+  if (!state.page) return null;
+
+  console.log('[EXTRACT] 📚 Extracting terms and title...');
+
+  try {
+    // Wait for terms
+    await waitForTerms(state.page);
+
+    // Expand all terms
+    await expandAllTerms(state.page);
+
+    await saveScreenshot(state, 'before-extraction');
+
+    // Extract data
+    const data = await state.page.evaluate(() => {
+      // Extract title
+      const titleSelectors = [
         'h1[class*="UIHeading"]',
+        'h1[class*="SetPageTitle"]',
+        '[data-testid="SetPageTitle"]',
+        '.SetPage-title',
         'h1',
-        '[class*="SetTitle"]',
-        '[class*="UITitle"]',
-        'span[class*="UIHeading"]',
-        'div[class*="SetPage-title"]',
-        '[data-testid="SetPageTitle"]'
       ];
 
-      let foundTitle = false;
-      for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element && element.textContent?.trim()) {
-          console.log(`Found title: "${element.textContent.trim()}" via ${selector}`);
-          title = element.textContent.trim();
-          foundTitle = true;
+      let title = 'Untitled Set';
+      for (const selector of titleSelectors) {
+        const el = document.querySelector(selector);
+        if (el?.textContent?.trim()) {
+          title = el.textContent.trim();
           break;
         }
       }
 
-      if (!foundTitle) {
-        const meta = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
-        title = meta || document.title || 'Untitled Set';
+      // If still no title, try document.title
+      if (title === 'Untitled Set' && document.title) {
+        title = document.title.replace(/\s*\|\s*Quizlet$/i, '').trim() || title;
       }
 
-      const textArray: string[] = [];
-      elements.forEach(el => {
-        const text = el.textContent?.trim();
-        if (text) textArray.push(text);
-      });
+      // Extract terms using multiple strategies
+      const results: Array<{ term: string; definition: string }> = [];
 
-      for (let i = 0; i < textArray.length; i += 2) {
-        const term = textArray[i];
-        const definition = textArray[i + 1] || '';
-        if (term) results.push({ term, definition });
+      // Strategy 1: Look for TermText class pattern
+      const termTextElements = document.querySelectorAll('[class*="TermText"]');
+      if (termTextElements.length >= 2) {
+        const texts: string[] = [];
+        termTextElements.forEach(el => {
+          const text = el.textContent?.trim();
+          if (text) texts.push(text);
+        });
+
+        // Pair them up (term, definition, term, definition, ...)
+        for (let i = 0; i < texts.length; i += 2) {
+          if (texts[i + 1]) {
+            results.push({
+              term: texts[i],
+              definition: texts[i + 1]
+            });
+          }
+        }
       }
 
-      return { title, terms: results };
+      // Strategy 2: Look for SetPageTerm structure
+      if (results.length === 0) {
+        const termCards = document.querySelectorAll('[class*="SetPageTerm"]');
+        termCards.forEach(card => {
+          const termEl = card.querySelector('[class*="term"], [class*="Term"]');
+          const defEl = card.querySelector('[class*="definition"], [class*="Definition"]');
+
+          const term = termEl?.textContent?.trim();
+          const definition = defEl?.textContent?.trim();
+
+          if (term && definition) {
+            results.push({ term, definition });
+          }
+        });
+      }
+
+      // Strategy 3: Look for specific class combinations
+      if (results.length === 0) {
+        const containers = document.querySelectorAll('.SetPageTerm-term, .SetPageTerm-definition');
+        const texts: string[] = [];
+        containers.forEach(el => {
+          const text = el.textContent?.trim();
+          if (text) texts.push(text);
+        });
+
+        for (let i = 0; i < texts.length; i += 2) {
+          if (texts[i + 1]) {
+            results.push({
+              term: texts[i],
+              definition: texts[i + 1]
+            });
+          }
+        }
+      }
+
+      // Strategy 4: Look for data attributes
+      if (results.length === 0) {
+        const termEls = document.querySelectorAll('[data-testid*="term"]');
+        termEls.forEach(el => {
+          const card = el.closest('[class*="card"], [class*="Card"], [class*="term-container"]');
+          if (card) {
+            const termText = card.querySelector('[class*="term"]')?.textContent?.trim();
+            const defText = card.querySelector('[class*="definition"]')?.textContent?.trim();
+
+            if (termText && defText) {
+              results.push({ term: termText, definition: defText });
+            }
+          }
+        });
+      }
+
+      return {
+        title,
+        terms: results
+      };
     });
 
-    console.log(`✅ Scraped title: "${quizletData.title}"`);
-    console.log(`✅ Found ${quizletData.terms.length} terms`);
-
-    return quizletData;
-
-    
-  } catch (error) {
-    throw error;
-  } finally {
-    if (page) {
-      await page.close().catch(() => {});
+    if (!data.terms || data.terms.length === 0) {
+      console.error('[EXTRACT] ❌ No terms found');
+      await saveScreenshot(state, 'no-terms-found');
+      return null;
     }
-    if (browser) {
-      await browser.close().catch(() => {});
+
+    console.log(`[EXTRACT] ✅ Extracted "${data.title}" with ${data.terms.length} terms`);
+    await saveScreenshot(state, 'extraction-complete');
+
+    return data;
+
+  } catch (error: any) {
+    console.error(`[EXTRACT] ❌ Extraction failed: ${error.message}`);
+    await saveScreenshot(state, 'extraction-error');
+    return null;
+  }
+}
+
+// ============================================================================
+// MAIN SCRAPER
+// ============================================================================
+
+export async function scrapeQuizlet(
+  url: string,
+  options: ScrapeOptions = {}
+): Promise<QuizletData> {
+  const {
+    takeScreenshots = false,
+    maxRetries = 3,
+    useProxy = true,
+  } = options;
+
+  console.log('\n' + '='.repeat(70));
+  console.log('[SCRAPER] 🚀 Starting Quizlet scraper');
+  console.log('[SCRAPER] 🔗 URL:', url);
+  console.log('[SCRAPER] 📸 Screenshots:', takeScreenshots);
+  console.log('[SCRAPER] 🌐 Proxy:', useProxy);
+  console.log('[SCRAPER] 🔄 Max retries:', maxRetries);
+  console.log('='.repeat(70) + '\n');
+
+  // Initialize state
+  const state: ScraperState = {
+    browser: null,
+    page: null,
+    captchaSolver: new TwoCaptchaSolver(
+      undefined,
+      useProxy ? {
+        server: `${PROXY_CONFIG.dns}:${PROXY_CONFIG.port}`,
+        username: PROXY_CONFIG.username,
+        password: PROXY_CONFIG.password,
+      } : undefined
+    ),
+    screenshotsDir: path.join(process.cwd(), 'screenshots'),
+    takeScreenshots,
+    url,
+  };
+
+  // Check 2Captcha balance
+  if (state.captchaSolver.isEnabled()) {
+    await state.captchaSolver.getBalance().catch(() => null);
+  }
+
+  let lastError: Error | null = null;
+
+  // Retry loop
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`\n[SCRAPER] 🔄 Attempt ${attempt}/${maxRetries}`);
+
+    try {
+      // Initialize browser
+      state.browser = await initBrowser(useProxy);
+      state.page = await initPage(state.browser, useProxy);
+
+      // Navigate to URL
+      const navSuccess = await navigateToUrl(state);
+      if (!navSuccess) {
+        throw new Error('Navigation failed');
+      }
+
+      // Quick human behavior simulation
+      await simulateHumanBehavior(state.page);
+
+      // Handle captcha (might not be present)
+      const captchaHandled = await handleCaptcha(state);
+      if (!captchaHandled) {
+        throw new Error('Captcha handling failed');
+      }
+
+      // Extract terms (no need for extra human behavior, terms should be ready)
+      const data = await extractTerms(state);
+      if (!data) {
+        throw new Error('Term extraction failed');
+      }
+
+      // Validate we got reasonable data
+      if (data.terms.length < 3) {
+        console.warn(`[SCRAPER] ⚠️  Only got ${data.terms.length} terms, might need retry`);
+        throw new Error(`Insufficient terms extracted: ${data.terms.length}`);
+      }
+
+      // Success!
+      console.log('\n' + '='.repeat(70));
+      console.log('[SCRAPER] ✅ SUCCESS!');
+      console.log(`[SCRAPER] 📚 Title: ${data.title}`);
+      console.log(`[SCRAPER] 📝 Terms: ${data.terms.length}`);
+      console.log('='.repeat(70) + '\n');
+
+      return data;
+
+    } catch (error: any) {
+      lastError = error;
+      console.error(`\n[SCRAPER] ❌ Attempt ${attempt} failed: ${error.message}\n`);
+
+      if (attempt < maxRetries) {
+        // Shorter delays between retries
+        const delay = Math.min(3000 * attempt, 8000);
+        console.log(`[SCRAPER] ⏳ Waiting ${delay}ms before retry...\n`);
+        await randomDelay(delay, delay + 1000);
+      }
+
+    } finally {
+      // Cleanup
+      if (state.page) {
+        await state.page.close().catch(() => {});
+        state.page = null;
+      }
+      if (state.browser) {
+        await state.browser.close().catch(() => {});
+        state.browser = null;
+      }
     }
   }
+
+  // All retries failed
+  console.log('\n' + '='.repeat(70));
+  console.error('[SCRAPER] ❌ ALL ATTEMPTS FAILED');
+  console.error(`[SCRAPER] 💥 Last error: ${lastError?.message}`);
+  console.log('='.repeat(70) + '\n');
+
+  throw new Error(
+    `Failed to scrape Quizlet after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`
+  );
 }

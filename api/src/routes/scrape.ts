@@ -17,7 +17,8 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid Quizlet URL' });
     }
 
-    const quizletData = await scrapeQuizlet(url);
+  const takeScreenshots = true;
+  const quizletData = await scrapeQuizlet(url, { takeScreenshots });
 
     if (quizletData.terms.length === 0) {
       return res.status(404).json({
