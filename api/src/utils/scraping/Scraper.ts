@@ -294,17 +294,37 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
   console.log('[HUMAN] 🤖 Simulating human behavior...');
 
   try {
-    // Faster, more realistic mouse movement
-    const x = Math.floor(Math.random() * 1920);
-    const y = Math.floor(Math.random() * 500) + 100; // Stay in viewport
-    await page.mouse.move(x, y, { steps: 2 });
+    // Random "thinking" pause (like reading the page)
+    await randomDelay(300, 800);
 
-    // Minimal scroll with randomized timing
+    // Natural mouse movement with curve
+    const x1 = Math.floor(Math.random() * 500) + 100;
+    const y1 = Math.floor(Math.random() * 300) + 100;
+    await page.mouse.move(x1, y1, { steps: 5 });
+    await randomDelay(100, 300);
+
+    const x2 = Math.floor(Math.random() * 1200) + 300;
+    const y2 = Math.floor(Math.random() * 400) + 200;
+    await page.mouse.move(x2, y2, { steps: 8 });
+
+    // Human-like scroll - gradual, not instant
     await page.evaluate(() => {
-      window.scrollBy(0, Math.floor(Math.random() * 150) + 50);
+      const scrollAmount = Math.floor(Math.random() * 200) + 100;
+      const scrollSteps = 5 + Math.floor(Math.random() * 5);
+      const scrollPerStep = scrollAmount / scrollSteps;
+
+      let scrolled = 0;
+      const interval = setInterval(() => {
+        if (scrolled >= scrollAmount) {
+          clearInterval(interval);
+          return;
+        }
+        window.scrollBy(0, scrollPerStep);
+        scrolled += scrollPerStep;
+      }, 30 + Math.random() * 20);
     });
 
-    await randomDelay(50, 150); // Much faster
+    await randomDelay(400, 900);
 
     console.log('[HUMAN] ✅ Behavior simulation complete');
   } catch (error) {
@@ -317,69 +337,111 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
 // ============================================================================
 
 async function handleCaptcha(state: ScraperState, currentAttempt: number, maxRetries: number): Promise<boolean> {
-  console.log('[CAPTCHA] 🔍 Quick captcha check...');
+  console.log('[CAPTCHA] 🔍 Smart captcha check...');
   state.progressEmitter?.captchaCheck();
 
   if (!state.page) return false;
 
-  // Minimal wait - faster detection
-  await randomDelay(500, 700);
+  // Human-like pause before checking
+  await randomDelay(800, 1400);
 
-  // Detect captcha
-  const detection = await state.captchaSolver.detectCaptcha(state.page, state.url);
+  // SMART CHECK: If page looks good, skip expensive captcha detection
+  const quickCheck = await state.page.evaluate(() => {
+    const title = document.title.toLowerCase();
+    const bodyText = document.body?.innerText?.toLowerCase() || '';
 
-  if (!detection.detected) {
-    console.log('[CAPTCHA] ✅ No captcha');
+    // Check if we have Quizlet content (not a captcha/block page)
+    const hasQuizletContent = title.includes('quizlet') &&
+                              !title.includes('challenge') &&
+                              !title.includes('verify') &&
+                              !title.includes('captcha');
+
+    const hasTerms = document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length > 0;
+
+    const isCaptchaPage = bodyText.includes('verify you are human') ||
+                          bodyText.includes('checking your browser') ||
+                          bodyText.includes('captcha') ||
+                          bodyText.includes('challenge') ||
+                          title.includes('attention required');
+
+    return {
+      looksGood: hasQuizletContent && !isCaptchaPage,
+      hasTerms,
+      isCaptchaPage
+    };
+  });
+
+  // If page looks good with terms, skip captcha check entirely
+  if (quickCheck.looksGood && quickCheck.hasTerms) {
+    console.log('[CAPTCHA] ✅ Page has valid content, skipping captcha check');
     return true;
   }
 
+  // If clearly a captcha page, handle it
+  if (quickCheck.isCaptchaPage) {
+    console.log(`[CAPTCHA] ⚠️  Captcha page detected`);
+    await saveScreenshot(state, `captcha-${currentAttempt}`);
+
+    // Retry with fresh browser on first 2 attempts
+    if (currentAttempt < maxRetries) {
+      console.log(`[CAPTCHA] 🔄 Retry ${currentAttempt}/${maxRetries} with fresh session`);
+      state.progressEmitter?.captchaDetected('page-check', false);
+      return false;
+    }
+
+    // Last attempt - try to solve
+    console.log(`[CAPTCHA] 🧩 Solving (attempt ${currentAttempt})...`);
+    state.progressEmitter?.captchaDetected('page-check', true);
+    state.progressEmitter?.captchaSolving();
+
+    const detection = await state.captchaSolver.detectCaptcha(state.page, state.url);
+    if (!detection.detected) {
+      console.log('[CAPTCHA] ⚠️  Could not detect captcha type, but page appears blocked');
+      return false;
+    }
+
+    const solution = await state.captchaSolver.solveCaptcha(state.url, detection);
+    if (!solution.success) {
+      console.error(`[CAPTCHA] ❌ Solve failed: ${solution.error}`);
+      return false;
+    }
+
+    const injected = await state.captchaSolver.injectSolution(state.page, solution);
+    if (!injected) {
+      console.error('[CAPTCHA] ❌ Inject failed');
+      return false;
+    }
+
+    await randomDelay(1500, 2000);
+    await Promise.race([
+      state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
+      randomDelay(2500, 3000)
+    ]);
+
+    await saveScreenshot(state, 'captcha-solved');
+    console.log('[CAPTCHA] ✅ Bypassed');
+    state.progressEmitter?.captchaSolved();
+    return true;
+  }
+
+  // Ambiguous - do full captcha detection
+  console.log('[CAPTCHA] 🤔 Ambiguous page, doing full check...');
+  const detection = await state.captchaSolver.detectCaptcha(state.page, state.url);
+
+  if (!detection.detected) {
+    console.log('[CAPTCHA] ✅ No captcha detected');
+    return true;
+  }
+
+  // Found captcha - retry with fresh browser
   console.log(`[CAPTCHA] ⚠️  Detected: ${detection.type}`);
-  await saveScreenshot(state, `captcha-${currentAttempt}`);
-
-  // Retry with fresh browser on first 2 attempts (avoid captcha completely)
-  const willSolve = currentAttempt >= maxRetries;
-  state.progressEmitter?.captchaDetected(detection.type || 'unknown', willSolve);
-
   if (currentAttempt < maxRetries) {
     console.log(`[CAPTCHA] 🔄 Retry ${currentAttempt}/${maxRetries} with fresh session`);
+    state.progressEmitter?.captchaDetected(detection.type || 'unknown', false);
     return false;
   }
 
-  // Last attempt - solve it
-  console.log(`[CAPTCHA] 🧩 Solving (attempt ${currentAttempt})...`);
-  state.progressEmitter?.captchaSolving();
-
-  const solution = await state.captchaSolver.solveCaptcha(state.url, detection);
-
-  if (!solution.success) {
-    console.error(`[CAPTCHA] ❌ Solve failed: ${solution.error}`);
-    return false;
-  }
-
-  const injected = await state.captchaSolver.injectSolution(state.page, solution);
-  if (!injected) {
-    console.error('[CAPTCHA] ❌ Inject failed');
-    return false;
-  }
-
-  // Fast wait for response
-  await randomDelay(1000, 1500);
-  await Promise.race([
-    state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {}),
-    randomDelay(2500, 3000)
-  ]);
-
-  await saveScreenshot(state, 'captcha-solved');
-
-  // Quick verify
-  const recheck = await state.captchaSolver.detectCaptcha(state.page, state.url);
-  if (recheck.detected) {
-    console.warn('[CAPTCHA] ⚠️  Still present');
-    return false;
-  }
-
-  console.log('[CAPTCHA] ✅ Bypassed');
-  state.progressEmitter?.captchaSolved();
+  console.log('[CAPTCHA] ✅ No captcha');
   return true;
 }
 
@@ -395,6 +457,7 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
 
   let navigationSucceeded = true;
   let response = null;
+  let httpStatus = 0;
 
   try {
     // Use domcontentloaded instead of networkidle2 to avoid waiting for ads
@@ -404,11 +467,16 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
     });
 
     if (response) {
-      const status = response.status();
-      console.log(`[NAV] 📡 Response status: ${status}`);
+      httpStatus = response.status();
+      console.log(`[NAV] 📡 Response status: ${httpStatus}`);
 
-      if (status >= 400) {
-        throw new Error(`HTTP ${status}`);
+      if (httpStatus === 403) {
+        console.warn('[NAV] ⚠️  Got 403 - likely bot detection, will retry with fresh browser');
+        throw new Error('HTTP 403 - Bot detection');
+      }
+
+      if (httpStatus >= 400) {
+        throw new Error(`HTTP ${httpStatus}`);
       }
     }
   } catch (error: any) {
@@ -428,8 +496,8 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
     { timeout: 3000 }
   ).catch(() => {});
 
-  // Quick delay for SPA initialization
-  await randomDelay(600, 900);
+  // Human-like delay for SPA initialization (variable timing)
+  await randomDelay(800, 1400);
 
   try {
     // Check if page has actual content (not a white screen or error page)
@@ -616,15 +684,24 @@ async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Pr
   progressEmitter?.termsLoading();
 
   try {
-    // Fast initial scroll to trigger lazy loading
-    console.log('[TERMS] 📜 Fast scroll to load content...');
+    // Human-like gradual scroll to trigger lazy loading
+    console.log('[TERMS] 📜 Human-like scroll to load content...');
     await page.evaluate(async () => {
-      // Instant scroll to bottom
-      window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(r => setTimeout(r, 800));
-      // Back to top
+      const totalHeight = document.body.scrollHeight;
+      const scrollSteps = 8 + Math.floor(Math.random() * 5); // 8-12 steps
+      const stepSize = totalHeight / scrollSteps;
+
+      for (let i = 0; i < scrollSteps; i++) {
+        window.scrollTo(0, stepSize * (i + 1));
+        // Random delay between scrolls (human-like)
+        await new Promise(r => setTimeout(r, 150 + Math.random() * 200));
+      }
+
+      await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
+
+      // Scroll back with similar human behavior
       window.scrollTo(0, 0);
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
     });
 
     // Keep clicking "See more" until there are no more buttons
@@ -634,8 +711,8 @@ async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Pr
     const maxClicks = 100;
 
     while (totalClicks < maxClicks) {
-      // Minimal wait
-      await randomDelay(400, 600);
+      // Variable wait (more human-like)
+      await randomDelay(500, 1000);
 
       // Fast button detection and click
       const clickResult = await page.evaluate(() => {
@@ -646,7 +723,7 @@ async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Pr
                  style.opacity !== '0' && rect.height > 0 && !el.hasAttribute('disabled');
         };
 
-        // Try aria-label first (fastest)
+        // Try aria-label first
         const byAria = document.querySelector('button[aria-label="See more"]') as HTMLElement;
         if (byAria && isVisible(byAria)) {
           byAria.click();
@@ -673,7 +750,7 @@ async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Pr
           console.log('[TERMS] ✅ No more buttons, expansion complete');
           break;
         }
-        await randomDelay(500, 700);
+        await randomDelay(600, 900);
         continue;
       }
 
@@ -681,9 +758,23 @@ async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Pr
       totalClicks++;
       console.log(`[TERMS] 🖱️  Clicked #${totalClicks}`);
 
-      // Quick scroll after click
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await randomDelay(800, 1200); // Wait for content to load
+      // Human pause after clicking (like waiting for load)
+      await randomDelay(300, 600);
+
+      // Gradual scroll after click
+      await page.evaluate(async () => {
+        const steps = 3 + Math.floor(Math.random() * 3);
+        const target = document.body.scrollHeight;
+        const current = window.scrollY;
+        const stepSize = (target - current) / steps;
+
+        for (let i = 0; i < steps; i++) {
+          window.scrollBy(0, stepSize);
+          await new Promise(r => setTimeout(r, 100 + Math.random() * 150));
+        }
+      });
+
+      await randomDelay(800, 1300); // Wait for content to load
 
       // Check count
       const currentCount = await page.evaluate(() =>
@@ -701,15 +792,25 @@ async function expandAllTerms(page: Page, progressEmitter?: ProgressEmitter): Pr
 
       lastCount = currentCount;
 
-      // Quick scroll back to top for next button
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await randomDelay(200, 400);
+      // Gradual scroll back to top
+      await page.evaluate(async () => {
+        const current = window.scrollY;
+        const steps = 3;
+        const stepSize = current / steps;
+
+        for (let i = 0; i < steps; i++) {
+          window.scrollBy(0, -stepSize);
+          await new Promise(r => setTimeout(r, 80 + Math.random() * 100));
+        }
+      });
+
+      await randomDelay(300, 600);
     }
 
-    // Final quick scroll
+    // Final human-like scroll
     await page.evaluate(async () => {
       window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
       window.scrollTo(0, 0);
     });
 
