@@ -68,11 +68,11 @@ const BROWSER_ARGS = [
 ];
 
 const TIMEOUTS = {
-  navigation: 30000, // Reduced since we're not waiting for networkidle
-  captchaSolve: 120000,
-  termExpansion: 20000,
-  pageLoad: 15000,
-  contentReady: 10000, // Time to wait for main content
+  navigation: 15000, // Fast navigation timeout
+  captchaSolve: 90000, // Reduced captcha solving time
+  termExpansion: 10000, // Faster term expansion
+  pageLoad: 8000,
+  contentReady: 5000, // Time to wait for main content
 };
 
 // ============================================================================
@@ -240,21 +240,17 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
   console.log('[HUMAN] 🤖 Simulating human behavior...');
 
   try {
-    // Shorter, more realistic mouse movements
-    for (let i = 0; i < 5; i++) {
+    // Quick mouse movements (reduced from 5 to 2)
+    for (let i = 0; i < 2; i++) {
       const x = Math.floor(Math.random() * 1920);
       const y = Math.floor(Math.random() * 1080);
-      await page.mouse.move(x, y, { steps: Math.floor(Math.random() * 5) + 3 });
-      await randomDelay(50, 150);
+      await page.mouse.move(x, y, { steps: 3 });
+      await randomDelay(30, 50);
     }
 
-    // Random scroll
-    await page.evaluate(async () => {
-      const scrolls = Math.floor(Math.random() * 2) + 1;
-      for (let i = 0; i < scrolls; i++) {
-        window.scrollBy(0, Math.floor(Math.random() * 300) + 100);
-        await new Promise(r => setTimeout(r, Math.random() * 300 + 100));
-      }
+    // Quick scroll
+    await page.evaluate(() => {
+      window.scrollBy(0, Math.floor(Math.random() * 200) + 100);
     });
 
     console.log('[HUMAN] ✅ Behavior simulation complete');
@@ -263,122 +259,40 @@ async function simulateHumanBehavior(page: Page): Promise<void> {
   }
 }
 
-async function getCaptchaIframeUrl(page: Page): Promise<string | null> {
-  // Known captcha patterns, now including Datadome
-  const markers = [
-    'recaptcha',
-    'hcaptcha',
-    'api2/anchor',
-    'api2/bframe',
-    'funcaptcha',
-    'captcha',
-    'datadome',           // 👈 NEW
-    'datadome.co',
-    '_datadome',
-    'ddcheck'
-  ];
-
-  // 1) Check DOM for iframe src attributes
-  try {
-    const src = await page.evaluate((markers) => {
-      const iframes = Array.from(document.querySelectorAll('iframe'));
-      for (const iframe of iframes) {
-        const s = (iframe.getAttribute('src') || '').toLowerCase();
-        if (!s) continue;
-        for (const m of markers) {
-          if (s.includes(m)) return s;
-        }
-      }
-      return null;
-    }, markers);
-
-    if (src) {
-      try {
-        return new URL(src, page.url()).toString();
-      } catch {
-        return src;
-      }
-    }
-  } catch (err) {
-    console.warn('[CAPTCHA] iframe DOM scan failed:', err);
-  }
-
-  // 2) Inspect Puppeteer frames (includes cross-origin)
-  try {
-    const frames = page.frames();
-    for (const frame of frames) {
-      const url = frame.url().toLowerCase();
-      for (const m of markers) {
-        if (url.includes(m)) return frame.url();
-      }
-    }
-  } catch (err) {
-    console.warn('[CAPTCHA] frame inspection failed:', err);
-  }
-
-  // 3) Datadome sometimes injects <script> or <link> tags referencing its endpoint
-  try {
-    const scriptUrl = await page.evaluate(() => {
-      const scripts = Array.from(document.querySelectorAll('script[src], link[href]'));
-      for (const el of scripts) {
-        const src = el.getAttribute('src') || el.getAttribute('href') || '';
-        if (src.toLowerCase().includes('datadome')) return src;
-      }
-      return null;
-    });
-
-    if (scriptUrl) {
-      try {
-        return new URL(scriptUrl, page.url()).toString();
-      } catch {
-        return scriptUrl;
-      }
-    }
-  } catch (err) {
-    console.warn('[CAPTCHA] Datadome script scan failed:', err);
-  }
-
-  // 4) Last fallback: look for network requests if page is still loading Datadome assets
-  try {
-    const req = page.on('request', request => {
-      const url = request.url().toLowerCase();
-      if (url.includes('datadome')) {
-        console.log('[CAPTCHA] 🔍 Datadome request detected:', url);
-        return url;
-      }
-    });
-  } catch {
-    // no-op
-  }
-
-  return null;
-}
-
 // ============================================================================
-// CAPTCHA HANDLING (updated)
+// CAPTCHA HANDLING
 // ============================================================================
-async function handleCaptcha(state: ScraperState): Promise<boolean> {
+
+async function handleCaptcha(state: ScraperState, currentAttempt: number, maxRetries: number): Promise<boolean> {
   console.log('[CAPTCHA] 🔍 Checking for captcha...');
 
   if (!state.page) return false;
-  await randomDelay(1500, 2000);
 
-  const iframeUrl: any = await getCaptchaIframeUrl(state.page);
-  if (iframeUrl) console.log(`[CAPTCHA] 🔗 Found iframe URL: ${iframeUrl}`);
-  else console.log('[CAPTCHA] ⚠️ No iframe URL found');
+  // Wait a bit for captcha to potentially appear (reduced delay)
+  await randomDelay(800, 1200);
 
   // Detect captcha
-  const detection = await state.captchaSolver.detectCaptcha(state.page, iframeUrl);
+  const detection = await state.captchaSolver.detectCaptcha(state.page, state.url);
+
   if (!detection.detected) {
     console.log('[CAPTCHA] ✅ No captcha detected');
     return true;
   }
 
-  console.log(`[CAPTCHA] ⚠️ Detected: ${detection.type}`);
-  await saveScreenshot(state, `captcha-detected-${detection.type}`);
+  console.log(`[CAPTCHA] ⚠️  Detected: ${detection.type}`);
+  await saveScreenshot(state, `captcha-detected-${detection.type}-attempt-${currentAttempt}`);
 
+  // Only solve captcha on the last attempt (attempt 3)
+  // On attempts 1-2, close browser and retry with a fresh session
+  if (currentAttempt < maxRetries) {
+    console.log(`[CAPTCHA] 🔄 Attempt ${currentAttempt}/${maxRetries}: Captcha detected, will retry with fresh browser`);
+    return false;
+  }
 
-  // Solve captcha (pass iframe URL to solver if supported)
+  // Last attempt - solve the captcha
+  console.log(`[CAPTCHA] 🧩 Attempt ${currentAttempt}/${maxRetries}: Solving captcha...`);
+
+  // Solve captcha
   const solution = await state.captchaSolver.solveCaptcha(state.url, detection);
 
   if (!solution.success) {
@@ -387,33 +301,41 @@ async function handleCaptcha(state: ScraperState): Promise<boolean> {
     return false;
   }
 
+  // Inject solution
   const injected = await state.captchaSolver.injectSolution(state.page, solution);
+
   if (!injected) {
     console.error('[CAPTCHA] ❌ Failed to inject solution');
     return false;
   }
 
+  // Wait for page to respond to captcha solution (reduced)
   console.log('[CAPTCHA] ⏳ Waiting for page to process solution...');
-  await randomDelay(2000, 3000);
+  await randomDelay(1500, 2000);
 
+  // Wait for navigation or content to change (use domcontentloaded to avoid waiting for ads)
   await Promise.race([
-    state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {}),
-    randomDelay(4000, 5000)
+    state.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 6000 }).catch(() => {}),
+    randomDelay(3000, 4000)
   ]);
 
-  await randomDelay(1000, 1500);
+  // Give the page a moment to settle (reduced)
+  await randomDelay(800, 1200);
+
   await saveScreenshot(state, 'captcha-solved');
 
-  const recheck = await state.captchaSolver.detectCaptcha(state.page, iframeUrl);
+  // Verify captcha is gone (reduced delay)
+  await randomDelay(500, 800);
+  const recheck = await state.captchaSolver.detectCaptcha(state.page, state.url);
+
   if (recheck.detected) {
-    console.warn('[CAPTCHA] ⚠️ Captcha still present after solving, may need retry');
+    console.warn('[CAPTCHA] ⚠️  Captcha still present after solving, may need retry');
     return false;
   }
 
   console.log('[CAPTCHA] ✅ Successfully bypassed');
   return true;
 }
-
 
 // ============================================================================
 // PAGE NAVIGATION
@@ -424,137 +346,163 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
 
   console.log(`[NAV] 🔗 Navigating to: ${state.url}`);
 
-  let navigationSucceeded = false;
-  let responseStatus = 0;
+  let navigationSucceeded = true;
+  let response = null;
 
   try {
     // Use domcontentloaded instead of networkidle2 to avoid waiting for ads
-    const response = await state.page.goto(state.url, {
+    response = await state.page.goto(state.url, {
       waitUntil: 'domcontentloaded',
       timeout: TIMEOUTS.navigation,
     });
 
-    if (!response) {
-      console.log('[NAV] ⚠️  No response received, checking if page loaded anyway...');
-    } else {
-      responseStatus = response.status();
-      console.log(`[NAV] 📡 Response status: ${responseStatus}`);
+    if (response) {
+      const status = response.status();
+      console.log(`[NAV] 📡 Response status: ${status}`);
 
-      if (responseStatus >= 400) {
-        throw new Error(`HTTP ${responseStatus}`);
+      if (status >= 400) {
+        throw new Error(`HTTP ${status}`);
       }
-      navigationSucceeded = true;
     }
   } catch (error: any) {
-    // Navigation timed out or failed, but page might have loaded anyway
-    console.log(`[NAV] ⚠️  Navigation error: ${error.message}`);
-    console.log('[NAV] 🔍 Checking if page loaded despite error...');
+    // Navigation timeout is OK if page content is loaded
+    if (error.message.includes('timeout') || error.message.includes('Navigation timeout')) {
+      console.log('[NAV] ⚠️  Navigation timeout, checking if page loaded anyway...');
+      navigationSucceeded = false;
+    } else {
+      throw error;
+    }
   }
 
-  // Wait for the page to be interactive
+  // Wait for the page to be interactive (shorter timeout)
   await state.page.waitForFunction(
     () => document.readyState === 'interactive' || document.readyState === 'complete',
-    { timeout: 5000 }
+    { timeout: 3000 }
   ).catch(() => {});
 
-  // Give React/SPA more time to initialize and render
-  await randomDelay(2000, 3000);
+  // Minimal delay for React/SPA to initialize
+  await randomDelay(1000, 1500);
 
-  // Check if page has actual content (not a white screen or error page)
-  const pageCheck = await state.page.evaluate(() => {
-    const body = document.body;
-    const bodyText = body?.innerText || '';
-    const bodyHTML = body?.innerHTML || '';
+  try {
+    // Check if page has actual content (not a white screen or error page)
+    const pageCheck = await state.page.evaluate(() => {
+      const body = document.body;
+      const bodyText = body?.innerText || '';
+      const bodyHTML = body?.innerHTML || '';
 
-    return {
-      hasBody: !!body,
-      bodyTextLength: bodyText.length,
-      bodyHTMLLength: bodyHTML.length,
-      title: document.title,
-      isErrorPage: bodyText.includes('Access denied') ||
-                  bodyText.includes('403') ||
-                  bodyText.includes('blocked') ||
-                  bodyText.includes('Checking your browser'),
-      hasMainContent: !!(
-        document.querySelector('[class*="SetPage"]') ||
-        document.querySelector('[class*="StudiableContainer"]') ||
-        document.querySelector('main') ||
-        document.querySelector('[role="main"]') ||
-        document.querySelector('#root > div') ||
-        document.querySelector('body > div')
-      )
-    };
-  });
-
-  console.log('[NAV] 📄 Page check:', {
-    title: pageCheck.title,
-    textLength: pageCheck.bodyTextLength,
-    htmlLength: pageCheck.bodyHTMLLength,
-    hasContent: pageCheck.hasMainContent,
-    isError: pageCheck.isErrorPage
-  });
-
-  // Check for white screen or no content
-  if (pageCheck.bodyTextLength < 100 && pageCheck.bodyHTMLLength < 500) {
-    await saveScreenshot(state, 'white-screen');
-    throw new Error('Page appears to be blank (white screen)');
-  }
-
-  // Check for error pages
-  if (pageCheck.isErrorPage) {
-    await saveScreenshot(state, 'error-page');
-    throw new Error('Detected error page or access denied');
-  }
-
-  // If page loaded with good content, consider it a success even if navigation timed out
-  if (!navigationSucceeded && pageCheck.bodyHTMLLength > 10000 && pageCheck.title.includes('Quizlet')) {
-    console.log('[NAV] ✅ Navigation timed out but page loaded successfully');
-    navigationSucceeded = true;
-  }
-
-  if (!navigationSucceeded && responseStatus === 0) {
-    throw new Error('Navigation failed - no response');
-  }
-
-  // Wait for Quizlet's main content with more lenient timeout
-  if (!pageCheck.hasMainContent) {
-    console.log('[NAV] ⏳ Waiting for main content to appear...');
-
-    await state.page.waitForFunction(
-      () => {
-        // Very lenient check - just make sure there's SOMETHING
-        return !!(
+      return {
+        hasBody: !!body,
+        bodyTextLength: bodyText.length,
+        bodyHTMLLength: bodyHTML.length,
+        title: document.title,
+        isErrorPage: bodyText.includes('Access denied') ||
+                    bodyText.includes('403') ||
+                    bodyText.includes('blocked') ||
+                    bodyText.includes('Checking your browser'),
+        hasMainContent: !!(
           document.querySelector('[class*="SetPage"]') ||
           document.querySelector('[class*="StudiableContainer"]') ||
           document.querySelector('main') ||
           document.querySelector('[role="main"]') ||
           document.querySelector('#root > div') ||
-          document.querySelector('body > div > div') ||
-          (document.body && document.body.children.length > 0)
-        );
-      },
-      { timeout: 15000 }
-    ).catch(() => {
-      console.warn('[NAV] ⚠️  Timeout waiting for content, but continuing...');
+          document.querySelector('body > div')
+        )
+      };
     });
+
+    console.log('[NAV] 📄 Page check:', {
+      title: pageCheck.title,
+      textLength: pageCheck.bodyTextLength,
+      htmlLength: pageCheck.bodyHTMLLength,
+      hasContent: pageCheck.hasMainContent,
+      isError: pageCheck.isErrorPage,
+      navTimedOut: !navigationSucceeded
+    });
+
+    // If we have good content, accept the page even if navigation timed out
+    if (!navigationSucceeded && pageCheck.bodyHTMLLength > 100000 && pageCheck.title.includes('Quizlet')) {
+      console.log('[NAV] ✅ Page loaded successfully despite navigation timeout');
+      await saveScreenshot(state, 'initial-load');
+      return true;
+    }
+
+    // Check for white screen or no content
+    if (pageCheck.bodyTextLength < 100 && pageCheck.bodyHTMLLength < 500) {
+      await saveScreenshot(state, 'white-screen');
+      throw new Error('Page appears to be blank (white screen)');
+    }
+
+    // Check for error pages
+    if (pageCheck.isErrorPage) {
+      await saveScreenshot(state, 'error-page');
+      throw new Error('Detected error page or access denied');
+    }
+
+    // Wait for Quizlet's main content with shorter timeout
+    if (!pageCheck.hasMainContent) {
+      console.log('[NAV] ⏳ Waiting for main content to appear...');
+
+      await state.page.waitForFunction(
+        () => {
+          // Very lenient check - just make sure there's SOMETHING
+          return !!(
+            document.querySelector('[class*="SetPage"]') ||
+            document.querySelector('[class*="StudiableContainer"]') ||
+            document.querySelector('main') ||
+            document.querySelector('[role="main"]') ||
+            document.querySelector('#root > div') ||
+            document.querySelector('body > div > div') ||
+            (document.body && document.body.children.length > 0)
+          );
+        },
+        { timeout: 8000 }
+      ).catch(() => {
+        console.warn('[NAV] ⚠️  Timeout waiting for content, but continuing...');
+      });
+    }
+
+    // Final check after waiting
+    const finalCheck = await state.page.evaluate(() => {
+      return {
+        bodyText: document.body?.innerText?.substring(0, 200) || '',
+        hasElements: document.body?.children?.length || 0
+      };
+    });
+
+    console.log('[NAV] 📋 Final check:', {
+      elements: finalCheck.hasElements,
+      preview: finalCheck.bodyText.substring(0, 100)
+    });
+
+    await saveScreenshot(state, 'initial-load');
+    console.log('[NAV] ✅ Navigation successful');
+    return true;
+
+  } catch (error: any) {
+    console.error(`[NAV] ❌ Navigation failed: ${error.message}`);
+
+    // Try to get page info for debugging
+    if (state.page) {
+      try {
+        const debugInfo = await state.page.evaluate(() => ({
+          url: window.location.href,
+          title: document.title,
+          bodyLength: document.body?.innerHTML?.length || 0,
+          readyState: document.readyState
+        }));
+        console.error('[NAV] 🔍 Debug info:', debugInfo);
+
+        // Check if the page is actually loaded despite the error
+        if (debugInfo.bodyLength > 100000 && debugInfo.title.includes('Quizlet')) {
+          console.log('[NAV] ✅ Page appears to be loaded, continuing anyway...');
+          return true;
+        }
+      } catch {}
+    }
+
+    await saveScreenshot(state, 'navigation-error');
+    return false;
   }
-
-  // Final check after waiting
-  const finalCheck = await state.page.evaluate(() => {
-    return {
-      bodyText: document.body?.innerText?.substring(0, 200) || '',
-      hasElements: document.body?.children?.length || 0
-    };
-  });
-
-  console.log('[NAV] 📋 Final check:', {
-    elements: finalCheck.hasElements,
-    preview: finalCheck.bodyText.substring(0, 100)
-  });
-
-  await saveScreenshot(state, 'initial-load');
-  console.log('[NAV] ✅ Navigation successful');
-  return true;
 }
 
 // ============================================================================
@@ -623,47 +571,178 @@ async function waitForTerms(page: Page): Promise<boolean> {
 }
 
 async function expandAllTerms(page: Page): Promise<void> {
-  console.log('[TERMS] 📈 Looking for "See more" button...');
+  console.log('[TERMS] 📈 Attempting to expand all terms...');
 
   try {
-    // Wait for page to fully load
-    await randomDelay(2000, 3000);
-
-    // Scroll to bottom
-    await page.evaluate(() => {
+    // First, scroll to bottom to trigger lazy loading
+    await page.evaluate(async () => {
       window.scrollTo(0, document.body.scrollHeight);
+      await new Promise(r => setTimeout(r, 500));
+      window.scrollTo(0, 0);
     });
 
-    await randomDelay(1000, 1500);
+    await randomDelay(500, 800);
 
-    // Find and click the "See more" button
-    const clicked = await page.evaluate(() => {
-      const button = document.querySelector('button[aria-label="See more"]');
-      if (!button) return false;
+    // Keep clicking "See more" until there are no more buttons or terms stop increasing
+    let totalClicks = 0;
+    let lastCount = 0;
+    const maxClicks = 50; // Safety limit to prevent infinite loops
 
-      const el = button as HTMLElement;
-      if (el.hasAttribute('disabled')) return false;
+    while (totalClicks < maxClicks) {
+      // Debug: Log all buttons found on the page, specifically looking for "See more"
+      const debugInfo = await page.evaluate(() => {
+        const allButtons = Array.from(document.querySelectorAll('button, [role="button"], a[href="#"], div[onclick]'));
 
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.click();
-      return true;
-    });
+        // Find buttons with "See more" or similar text/aria-label
+        const seeMoreButtons = allButtons.filter(b => {
+          const text = b.textContent?.toLowerCase().trim() || '';
+          const ariaLabel = (b.getAttribute('aria-label') || '').toLowerCase();
+          return text.includes('see') || text.includes('more') || text.includes('load') ||
+                 ariaLabel.includes('see') || ariaLabel.includes('more') || ariaLabel.includes('load');
+        }).map(b => ({
+          text: b.textContent?.trim() || '',
+          ariaLabel: b.getAttribute('aria-label') || '',
+          className: b.className,
+          tagName: b.tagName,
+          visible: (() => {
+            const style = window.getComputedStyle(b as HTMLElement);
+            const rect = b.getBoundingClientRect();
+            return style.display !== 'none' &&
+                   style.visibility !== 'hidden' &&
+                   style.opacity !== '0' &&
+                   rect.width > 0 &&
+                   rect.height > 0;
+          })(),
+          disabled: b.hasAttribute('disabled')
+        }));
 
-    if (!clicked) {
-      console.log('[TERMS] ℹ️  "See more" button not found');
-      return;
+        return {
+          totalButtons: allButtons.length,
+          seeMoreButtons: seeMoreButtons
+        };
+      });
+
+      console.log('[TERMS] 🔍 Debug - Total buttons:', debugInfo.totalButtons);
+      console.log('[TERMS] 🔍 Debug - "See more" related buttons:', JSON.stringify(debugInfo.seeMoreButtons, null, 2));
+
+      // Wait a moment for the button to potentially appear (reduced)
+      await randomDelay(500, 800);
+
+      // Try to find and click "See more" button
+      const clickResult = await page.evaluate(() => {
+        // Helper function to check if button is visible
+        const isButtonVisible = (el: HTMLElement): boolean => {
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+          return style.display !== 'none' &&
+                 style.visibility !== 'hidden' &&
+                 style.opacity !== '0' &&
+                 rect.width > 0 &&
+                 rect.height > 0 &&
+                 !el.hasAttribute('disabled');
+        };
+
+        // Look for button with BOTH aria-label="See more" AND text="See more"
+        const seeMoreButtons = document.querySelectorAll('button[aria-label="See more"]');
+        console.log(`[DEBUG] Found ${seeMoreButtons.length} buttons with aria-label="See more"`);
+
+        for (const button of Array.from(seeMoreButtons)) {
+          const el = button as HTMLElement;
+          const text = el.textContent?.trim() || '';
+          const ariaLabel = el.getAttribute('aria-label') || '';
+
+          console.log(`[DEBUG] Checking button - Text: "${text}", Aria-label: "${ariaLabel}", Visible: ${isButtonVisible(el)}`);
+
+          // Must have BOTH aria-label="See more" AND text content "See more"
+          if (ariaLabel === 'See more' && text === 'See more' && isButtonVisible(el)) {
+            console.log('[DEBUG] ✅ Found exact "See more" button (both aria-label and text match)');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.click();
+            return { clicked: true, buttonText: 'See more', method: 'exact-match' };
+          }
+        }
+
+        // If exact match not found, just try aria-label="See more"
+        for (const button of Array.from(seeMoreButtons)) {
+          const el = button as HTMLElement;
+          if (isButtonVisible(el)) {
+            console.log('[DEBUG] Found button with aria-label="See more" (text may differ)');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.click();
+            return { clicked: true, buttonText: el.textContent?.trim() || 'See more', method: 'aria-label-only' };
+          }
+        }
+
+        return { clicked: false };
+      });
+
+      if (!clickResult.clicked) {
+        console.log('[TERMS] ℹ️  No more "See more" buttons found');
+        break;
+      }
+
+      totalClicks++;
+      console.log(`[TERMS] 🖱️  Clicked "See more" button #${totalClicks} (${clickResult.buttonText || 'via aria-label'})`);
+
+      // Wait a bit for the click to register (reduced)
+      await randomDelay(300, 500);
+
+      // Scroll to bottom to trigger lazy loading
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      // Wait for new terms to load (reduced)
+      await randomDelay(1000, 1500);
+
+      // Check if term count increased
+      const currentCount = await page.evaluate(() => {
+        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+      });
+
+      console.log(`[TERMS] 📊 Term elements: ${currentCount} (was ${lastCount})`);
+
+      // If count hasn't increased after clicking, try waiting a bit more and check again
+      if (currentCount === lastCount) {
+        console.log('[TERMS] ⏳ No new terms yet, waiting a bit more...');
+        await randomDelay(1000, 1500);
+
+        const recheckedCount = await page.evaluate(() => {
+          return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+        });
+
+        console.log(`[TERMS] 📊 Rechecked term elements: ${recheckedCount}`);
+
+        if (recheckedCount === lastCount) {
+          console.log('[TERMS] ✅ No new terms loaded, expansion complete');
+          break;
+        }
+
+        lastCount = recheckedCount;
+      } else {
+        lastCount = currentCount;
+      }
+
+      // Scroll back to top
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+      });
+      await randomDelay(300, 500);
     }
 
-    console.log('[TERMS] 🖱️  Clicked "See more" button');
+    if (totalClicks >= maxClicks) {
+      console.warn(`[TERMS] ⚠️  Reached max clicks (${maxClicks}), stopping`);
+    }
 
-    // Wait for all terms to load (up to 30 seconds)
-    console.log('[TERMS] ⏳ Loading all terms...');
-    await randomDelay(5000, 6000);
+    // Final count
+    const finalCount = await page.evaluate(() => {
+      return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
+    });
 
-    console.log('[TERMS] ✅ Terms loaded');
+    console.log(`[TERMS] ✅ Expansion complete. Total clicks: ${totalClicks}, Final term elements: ${finalCount}`);
 
   } catch (error: any) {
-    console.warn(`[TERMS] ⚠️  Expansion error: ${error.message}`);
+    console.warn(`[TERMS] ⚠️  Expansion error (non-critical): ${error.message}`);
   }
 }
 
@@ -673,14 +752,11 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
   console.log('[EXTRACT] 📚 Extracting terms and title...');
 
   try {
-    // Wait for initial terms
+    // Wait for terms
     await waitForTerms(state.page);
 
     // Expand all terms
     await expandAllTerms(state.page);
-
-    // Wait for all expanded terms to load and stabilize
-    await waitForTerms(state.page);
 
     await saveScreenshot(state, 'before-extraction');
 
@@ -878,9 +954,9 @@ export async function scrapeQuizlet(
       await simulateHumanBehavior(state.page);
 
       // Handle captcha (might not be present)
-      const captchaHandled = await handleCaptcha(state);
+      const captchaHandled = await handleCaptcha(state, attempt, maxRetries);
       if (!captchaHandled) {
-        throw new Error('Captcha handling failed');
+        throw new Error('Captcha detected - retrying with fresh browser');
       }
 
       // Extract terms (no need for extra human behavior, terms should be ready)
@@ -909,10 +985,10 @@ export async function scrapeQuizlet(
       console.error(`\n[SCRAPER] ❌ Attempt ${attempt} failed: ${error.message}\n`);
 
       if (attempt < maxRetries) {
-        // Shorter delays between retries
-        const delay = Math.min(3000 * attempt, 8000);
+        // Minimal delays between retries
+        const delay = Math.min(2000 * attempt, 4000);
         console.log(`[SCRAPER] ⏳ Waiting ${delay}ms before retry...\n`);
-        await randomDelay(delay, delay + 1000);
+        await randomDelay(delay, delay + 500);
       }
 
     } finally {
