@@ -542,97 +542,44 @@ async function expandAllTerms(page: Page): Promise<void> {
   console.log('[TERMS] 📈 Looking for "See more" button...');
 
   try {
-    // Scroll to bottom to load the "See more" button
-    console.log('[TERMS] 📜 Scrolling to find "See more" button...');
+    // Wait for page to fully load
+    await randomDelay(2000, 3000);
+
+    // Scroll to bottom
     await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight);
     });
 
-    // Wait a moment for content to load
     await randomDelay(1000, 1500);
 
-    // Now try to find and click the "See more" button
-    const clickResult = await page.evaluate(() => {
-      // Find THE button with aria-label="See more" AND text="See more"
+    // Find and click the "See more" button
+    const clicked = await page.evaluate(() => {
       const button = document.querySelector('button[aria-label="See more"]');
-
-      if (!button) {
-        return { clicked: false, reason: 'No button with aria-label="See more" found' };
-      }
+      if (!button) return false;
 
       const el = button as HTMLElement;
-      const text = el.textContent?.trim() || '';
-      const ariaLabel = el.getAttribute('aria-label') || '';
+      if (el.hasAttribute('disabled')) return false;
 
-      // Scroll button into view FIRST
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-      // Check if button is rendered and enabled
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      const isRendered = style.display !== 'none' &&
-                       style.visibility !== 'hidden' &&
-                       style.opacity !== '0' &&
-                       rect.width > 0 &&
-                       rect.height > 0;
-
-      const isDisabled = el.hasAttribute('disabled');
-
-      console.log(`[DEBUG] Found button - Text: "${text}", Aria-label: "${ariaLabel}", Rendered: ${isRendered}, Disabled: ${isDisabled}`);
-
-      // Must have BOTH aria-label="See more" AND text="See more", be rendered, and NOT disabled
-      if (ariaLabel === 'See more' && text === 'See more' && isRendered && !isDisabled) {
-        console.log('[DEBUG] ✅ Clicking "See more" button');
-
-        // Click it
-        el.click();
-        return { clicked: true, buttonText: 'See more' };
-      }
-
-      return {
-        clicked: false,
-        reason: `Button found but not clickable - Text: "${text}", Disabled: ${isDisabled}, Rendered: ${isRendered}`
-      };
+      el.click();
+      return true;
     });
 
-    if (!clickResult.clicked) {
-      console.log('[TERMS] ℹ️  "See more" button not found or not clickable');
-      if (clickResult.reason) {
-        console.log(`[TERMS] 📝 Reason: ${clickResult.reason}`);
-      }
+    if (!clicked) {
+      console.log('[TERMS] ℹ️  "See more" button not found');
       return;
     }
 
     console.log('[TERMS] 🖱️  Clicked "See more" button');
 
-    // Wait for all terms to load
-    console.log('[TERMS] ⏳ Waiting for all terms to load...');
-    await randomDelay(3000, 4000);
+    // Wait for all terms to load (up to 30 seconds)
+    console.log('[TERMS] ⏳ Loading all terms...');
+    await randomDelay(5000, 6000);
 
-    // Wait for button to disappear or terms to stop loading
-    await page.waitForFunction(
-      () => {
-        const button = document.querySelector('button[aria-label="See more"]');
-        // Button either disappeared or is no longer loading
-        return !button || !button.hasAttribute('disabled');
-      },
-      { timeout: 30000 }
-    ).catch(() => {
-      console.log('[TERMS] ⚠️  Timeout waiting for terms to load');
-    });
-
-    // Give it a bit more time to be safe
-    await randomDelay(2000, 3000);
-
-    // Final count
-    const finalCount = await page.evaluate(() => {
-      return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
-    });
-
-    console.log(`[TERMS] ✅ All terms loaded. Final term elements: ${finalCount}`);
+    console.log('[TERMS] ✅ Terms loaded');
 
   } catch (error: any) {
-    console.warn(`[TERMS] ⚠️  Expansion error (non-critical): ${error.message}`);
+    console.warn(`[TERMS] ⚠️  Expansion error: ${error.message}`);
   }
 }
 
@@ -642,11 +589,14 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
   console.log('[EXTRACT] 📚 Extracting terms and title...');
 
   try {
-    // Wait for terms
+    // Wait for initial terms
     await waitForTerms(state.page);
 
     // Expand all terms
     await expandAllTerms(state.page);
+
+    // Wait for all expanded terms to load and stabilize
+    await waitForTerms(state.page);
 
     await saveScreenshot(state, 'before-extraction');
 

@@ -156,6 +156,7 @@ export class TwoCaptchaSolver {
           if (!detection.captchaUrl) {
             return { success: false, error: 'DataDome captcha URL not found' };
           }
+          console.log(detection.captchaUrl, proxyConfig)
           result = await this.solver.dataDome({
             pageurl: url,
             captcha_url: detection.captchaUrl,
