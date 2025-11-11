@@ -340,6 +340,9 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
 
   console.log(`[NAV] 🔗 Navigating to: ${state.url}`);
 
+  let navigationSucceeded = false;
+  let responseStatus = 0;
+
   try {
     // Use domcontentloaded instead of networkidle2 to avoid waiting for ads
     const response = await state.page.goto(state.url, {
@@ -348,130 +351,126 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
     });
 
     if (!response) {
-      throw new Error('No response received');
+      console.log('[NAV] ⚠️  No response received, checking if page loaded anyway...');
+    } else {
+      responseStatus = response.status();
+      console.log(`[NAV] 📡 Response status: ${responseStatus}`);
+
+      if (responseStatus >= 400) {
+        throw new Error(`HTTP ${responseStatus}`);
+      }
+      navigationSucceeded = true;
     }
+  } catch (error: any) {
+    // Navigation timed out or failed, but page might have loaded anyway
+    console.log(`[NAV] ⚠️  Navigation error: ${error.message}`);
+    console.log('[NAV] 🔍 Checking if page loaded despite error...');
+  }
 
-    const status = response.status();
-    console.log(`[NAV] 📡 Response status: ${status}`);
+  // Wait for the page to be interactive
+  await state.page.waitForFunction(
+    () => document.readyState === 'interactive' || document.readyState === 'complete',
+    { timeout: 5000 }
+  ).catch(() => {});
 
-    if (status >= 400) {
-      throw new Error(`HTTP ${status}`);
-    }
+  // Give React/SPA more time to initialize and render
+  await randomDelay(2000, 3000);
 
-    // Wait for the page to be interactive
+  // Check if page has actual content (not a white screen or error page)
+  const pageCheck = await state.page.evaluate(() => {
+    const body = document.body;
+    const bodyText = body?.innerText || '';
+    const bodyHTML = body?.innerHTML || '';
+
+    return {
+      hasBody: !!body,
+      bodyTextLength: bodyText.length,
+      bodyHTMLLength: bodyHTML.length,
+      title: document.title,
+      isErrorPage: bodyText.includes('Access denied') ||
+                  bodyText.includes('403') ||
+                  bodyText.includes('blocked') ||
+                  bodyText.includes('Checking your browser'),
+      hasMainContent: !!(
+        document.querySelector('[class*="SetPage"]') ||
+        document.querySelector('[class*="StudiableContainer"]') ||
+        document.querySelector('main') ||
+        document.querySelector('[role="main"]') ||
+        document.querySelector('#root > div') ||
+        document.querySelector('body > div')
+      )
+    };
+  });
+
+  console.log('[NAV] 📄 Page check:', {
+    title: pageCheck.title,
+    textLength: pageCheck.bodyTextLength,
+    htmlLength: pageCheck.bodyHTMLLength,
+    hasContent: pageCheck.hasMainContent,
+    isError: pageCheck.isErrorPage
+  });
+
+  // Check for white screen or no content
+  if (pageCheck.bodyTextLength < 100 && pageCheck.bodyHTMLLength < 500) {
+    await saveScreenshot(state, 'white-screen');
+    throw new Error('Page appears to be blank (white screen)');
+  }
+
+  // Check for error pages
+  if (pageCheck.isErrorPage) {
+    await saveScreenshot(state, 'error-page');
+    throw new Error('Detected error page or access denied');
+  }
+
+  // If page loaded with good content, consider it a success even if navigation timed out
+  if (!navigationSucceeded && pageCheck.bodyHTMLLength > 10000 && pageCheck.title.includes('Quizlet')) {
+    console.log('[NAV] ✅ Navigation timed out but page loaded successfully');
+    navigationSucceeded = true;
+  }
+
+  if (!navigationSucceeded && responseStatus === 0) {
+    throw new Error('Navigation failed - no response');
+  }
+
+  // Wait for Quizlet's main content with more lenient timeout
+  if (!pageCheck.hasMainContent) {
+    console.log('[NAV] ⏳ Waiting for main content to appear...');
+
     await state.page.waitForFunction(
-      () => document.readyState === 'interactive' || document.readyState === 'complete',
-      { timeout: 5000 }
-    ).catch(() => {});
-
-    // Give React/SPA more time to initialize and render
-    await randomDelay(2000, 3000);
-
-    // Check if page has actual content (not a white screen or error page)
-    const pageCheck = await state.page.evaluate(() => {
-      const body = document.body;
-      const bodyText = body?.innerText || '';
-      const bodyHTML = body?.innerHTML || '';
-
-      return {
-        hasBody: !!body,
-        bodyTextLength: bodyText.length,
-        bodyHTMLLength: bodyHTML.length,
-        title: document.title,
-        isErrorPage: bodyText.includes('Access denied') ||
-                    bodyText.includes('403') ||
-                    bodyText.includes('blocked') ||
-                    bodyText.includes('Checking your browser'),
-        hasMainContent: !!(
+      () => {
+        // Very lenient check - just make sure there's SOMETHING
+        return !!(
           document.querySelector('[class*="SetPage"]') ||
           document.querySelector('[class*="StudiableContainer"]') ||
           document.querySelector('main') ||
           document.querySelector('[role="main"]') ||
           document.querySelector('#root > div') ||
-          document.querySelector('body > div')
-        )
-      };
+          document.querySelector('body > div > div') ||
+          (document.body && document.body.children.length > 0)
+        );
+      },
+      { timeout: 15000 }
+    ).catch(() => {
+      console.warn('[NAV] ⚠️  Timeout waiting for content, but continuing...');
     });
-
-    console.log('[NAV] 📄 Page check:', {
-      title: pageCheck.title,
-      textLength: pageCheck.bodyTextLength,
-      htmlLength: pageCheck.bodyHTMLLength,
-      hasContent: pageCheck.hasMainContent,
-      isError: pageCheck.isErrorPage
-    });
-
-    // Check for white screen or no content
-    if (pageCheck.bodyTextLength < 100 && pageCheck.bodyHTMLLength < 500) {
-      await saveScreenshot(state, 'white-screen');
-      throw new Error('Page appears to be blank (white screen)');
-    }
-
-    // Check for error pages
-    if (pageCheck.isErrorPage) {
-      await saveScreenshot(state, 'error-page');
-      throw new Error('Detected error page or access denied');
-    }
-
-    // Wait for Quizlet's main content with more lenient timeout
-    if (!pageCheck.hasMainContent) {
-      console.log('[NAV] ⏳ Waiting for main content to appear...');
-
-      await state.page.waitForFunction(
-        () => {
-          // Very lenient check - just make sure there's SOMETHING
-          return !!(
-            document.querySelector('[class*="SetPage"]') ||
-            document.querySelector('[class*="StudiableContainer"]') ||
-            document.querySelector('main') ||
-            document.querySelector('[role="main"]') ||
-            document.querySelector('#root > div') ||
-            document.querySelector('body > div > div') ||
-            (document.body && document.body.children.length > 0)
-          );
-        },
-        { timeout: 15000 }
-      ).catch(() => {
-        console.warn('[NAV] ⚠️  Timeout waiting for content, but continuing...');
-      });
-    }
-
-    // Final check after waiting
-    const finalCheck = await state.page.evaluate(() => {
-      return {
-        bodyText: document.body?.innerText?.substring(0, 200) || '',
-        hasElements: document.body?.children?.length || 0
-      };
-    });
-
-    console.log('[NAV] 📋 Final check:', {
-      elements: finalCheck.hasElements,
-      preview: finalCheck.bodyText.substring(0, 100)
-    });
-
-    await saveScreenshot(state, 'initial-load');
-    console.log('[NAV] ✅ Navigation successful');
-    return true;
-
-  } catch (error: any) {
-    console.error(`[NAV] ❌ Navigation failed: ${error.message}`);
-
-    // Try to get page info for debugging
-    if (state.page) {
-      try {
-        const debugInfo = await state.page.evaluate(() => ({
-          url: window.location.href,
-          title: document.title,
-          bodyLength: document.body?.innerHTML?.length || 0,
-          readyState: document.readyState
-        }));
-        console.error('[NAV] 🔍 Debug info:', debugInfo);
-      } catch {}
-    }
-
-    await saveScreenshot(state, 'navigation-error');
-    return false;
   }
+
+  // Final check after waiting
+  const finalCheck = await state.page.evaluate(() => {
+    return {
+      bodyText: document.body?.innerText?.substring(0, 200) || '',
+      hasElements: document.body?.children?.length || 0
+    };
+  });
+
+  console.log('[NAV] 📋 Final check:', {
+    elements: finalCheck.hasElements,
+    preview: finalCheck.bodyText.substring(0, 100)
+  });
+
+  await saveScreenshot(state, 'initial-load');
+  console.log('[NAV] ✅ Navigation successful');
+  return true;
 }
 
 // ============================================================================
@@ -540,175 +539,97 @@ async function waitForTerms(page: Page): Promise<boolean> {
 }
 
 async function expandAllTerms(page: Page): Promise<void> {
-  console.log('[TERMS] 📈 Attempting to expand all terms...');
+  console.log('[TERMS] 📈 Looking for "See more" button...');
 
   try {
-    // First, scroll to bottom to trigger lazy loading
-    await page.evaluate(async () => {
+    // Scroll to bottom to load the "See more" button
+    console.log('[TERMS] 📜 Scrolling to find "See more" button...');
+    await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(r => setTimeout(r, 500));
-      window.scrollTo(0, 0);
     });
 
-    await randomDelay(500, 800);
+    // Wait a moment for content to load
+    await randomDelay(1000, 1500);
 
-    // Keep clicking "See more" until there are no more buttons or terms stop increasing
-    let totalClicks = 0;
-    let lastCount = 0;
-    const maxClicks = 50; // Safety limit to prevent infinite loops
+    // Now try to find and click the "See more" button
+    const clickResult = await page.evaluate(() => {
+      // Find THE button with aria-label="See more" AND text="See more"
+      const button = document.querySelector('button[aria-label="See more"]');
 
-    while (totalClicks < maxClicks) {
-      // Debug: Log all buttons found on the page, specifically looking for "See more"
-      const debugInfo = await page.evaluate(() => {
-        const allButtons = Array.from(document.querySelectorAll('button, [role="button"], a[href="#"], div[onclick]'));
-
-        // Find buttons with "See more" or similar text/aria-label
-        const seeMoreButtons = allButtons.filter(b => {
-          const text = b.textContent?.toLowerCase().trim() || '';
-          const ariaLabel = (b.getAttribute('aria-label') || '').toLowerCase();
-          return text.includes('see') || text.includes('more') || text.includes('load') ||
-                 ariaLabel.includes('see') || ariaLabel.includes('more') || ariaLabel.includes('load');
-        }).map(b => ({
-          text: b.textContent?.trim() || '',
-          ariaLabel: b.getAttribute('aria-label') || '',
-          className: b.className,
-          tagName: b.tagName,
-          visible: (() => {
-            const style = window.getComputedStyle(b as HTMLElement);
-            const rect = b.getBoundingClientRect();
-            return style.display !== 'none' &&
-                   style.visibility !== 'hidden' &&
-                   style.opacity !== '0' &&
-                   rect.width > 0 &&
-                   rect.height > 0;
-          })(),
-          disabled: b.hasAttribute('disabled')
-        }));
-
-        return {
-          totalButtons: allButtons.length,
-          seeMoreButtons: seeMoreButtons
-        };
-      });
-
-      console.log('[TERMS] 🔍 Debug - Total buttons:', debugInfo.totalButtons);
-      console.log('[TERMS] 🔍 Debug - "See more" related buttons:', JSON.stringify(debugInfo.seeMoreButtons, null, 2));
-
-      // Wait a moment for the button to potentially appear
-      await randomDelay(1000, 1500);
-
-      // Try to find and click "See more" button
-      const clickResult = await page.evaluate(() => {
-        // Helper function to check if button is visible
-        const isButtonVisible = (el: HTMLElement): boolean => {
-          const style = window.getComputedStyle(el);
-          const rect = el.getBoundingClientRect();
-          return style.display !== 'none' &&
-                 style.visibility !== 'hidden' &&
-                 style.opacity !== '0' &&
-                 rect.width > 0 &&
-                 rect.height > 0 &&
-                 !el.hasAttribute('disabled');
-        };
-
-        // Look for button with BOTH aria-label="See more" AND text="See more"
-        const seeMoreButtons = document.querySelectorAll('button[aria-label="See more"]');
-        console.log(`[DEBUG] Found ${seeMoreButtons.length} buttons with aria-label="See more"`);
-
-        for (const button of Array.from(seeMoreButtons)) {
-          const el = button as HTMLElement;
-          const text = el.textContent?.trim() || '';
-          const ariaLabel = el.getAttribute('aria-label') || '';
-
-          console.log(`[DEBUG] Checking button - Text: "${text}", Aria-label: "${ariaLabel}", Visible: ${isButtonVisible(el)}`);
-
-          // Must have BOTH aria-label="See more" AND text content "See more"
-          if (ariaLabel === 'See more' && text === 'See more' && isButtonVisible(el)) {
-            console.log('[DEBUG] ✅ Found exact "See more" button (both aria-label and text match)');
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.click();
-            return { clicked: true, buttonText: 'See more', method: 'exact-match' };
-          }
-        }
-
-        // If exact match not found, just try aria-label="See more"
-        for (const button of Array.from(seeMoreButtons)) {
-          const el = button as HTMLElement;
-          if (isButtonVisible(el)) {
-            console.log('[DEBUG] Found button with aria-label="See more" (text may differ)');
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.click();
-            return { clicked: true, buttonText: el.textContent?.trim() || 'See more', method: 'aria-label-only' };
-          }
-        }
-
-        return { clicked: false };
-      });
-
-      if (!clickResult.clicked) {
-        console.log('[TERMS] ℹ️  No more "See more" buttons found');
-        break;
+      if (!button) {
+        return { clicked: false, reason: 'No button with aria-label="See more" found' };
       }
 
-      totalClicks++;
-      console.log(`[TERMS] 🖱️  Clicked "See more" button #${totalClicks} (${clickResult.buttonText || 'via aria-label'})`);
+      const el = button as HTMLElement;
+      const text = el.textContent?.trim() || '';
+      const ariaLabel = el.getAttribute('aria-label') || '';
 
-      // Wait a bit for the click to register
-      await randomDelay(500, 700);
+      // Scroll button into view FIRST
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Scroll to bottom to trigger lazy loading
-      await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      });
+      // Check if button is rendered and enabled
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      const isRendered = style.display !== 'none' &&
+                       style.visibility !== 'hidden' &&
+                       style.opacity !== '0' &&
+                       rect.width > 0 &&
+                       rect.height > 0;
 
-      // Wait longer for new terms to load (React/SPA needs time)
-      await randomDelay(2000, 3000);
+      const isDisabled = el.hasAttribute('disabled');
 
-      // Check if term count increased
-      const currentCount = await page.evaluate(() => {
-        return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
-      });
+      console.log(`[DEBUG] Found button - Text: "${text}", Aria-label: "${ariaLabel}", Rendered: ${isRendered}, Disabled: ${isDisabled}`);
 
-      console.log(`[TERMS] 📊 Term elements: ${currentCount} (was ${lastCount})`);
+      // Must have BOTH aria-label="See more" AND text="See more", be rendered, and NOT disabled
+      if (ariaLabel === 'See more' && text === 'See more' && isRendered && !isDisabled) {
+        console.log('[DEBUG] ✅ Clicking "See more" button');
 
-      // If count hasn't increased after clicking, try waiting a bit more and check again
-      if (currentCount === lastCount) {
-        console.log('[TERMS] ⏳ No new terms yet, waiting a bit more...');
-        await randomDelay(2000, 3000);
-
-        const recheckedCount = await page.evaluate(() => {
-          return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
-        });
-
-        console.log(`[TERMS] 📊 Rechecked term elements: ${recheckedCount}`);
-
-        if (recheckedCount === lastCount) {
-          console.log('[TERMS] ✅ No new terms loaded, expansion complete');
-          break;
-        }
-
-        lastCount = recheckedCount;
-      } else {
-        lastCount = currentCount;
+        // Click it
+        el.click();
+        return { clicked: true, buttonText: 'See more' };
       }
 
-      // Scroll back to top
-      await page.evaluate(() => {
-        window.scrollTo(0, 0);
-      });
-      await randomDelay(300, 500);
+      return {
+        clicked: false,
+        reason: `Button found but not clickable - Text: "${text}", Disabled: ${isDisabled}, Rendered: ${isRendered}`
+      };
+    });
+
+    if (!clickResult.clicked) {
+      console.log('[TERMS] ℹ️  "See more" button not found or not clickable');
+      if (clickResult.reason) {
+        console.log(`[TERMS] 📝 Reason: ${clickResult.reason}`);
+      }
+      return;
     }
 
-    if (totalClicks >= maxClicks) {
-      console.warn(`[TERMS] ⚠️  Reached max clicks (${maxClicks}), stopping`);
-    }
+    console.log('[TERMS] 🖱️  Clicked "See more" button');
+
+    // Wait for all terms to load
+    console.log('[TERMS] ⏳ Waiting for all terms to load...');
+    await randomDelay(3000, 4000);
+
+    // Wait for button to disappear or terms to stop loading
+    await page.waitForFunction(
+      () => {
+        const button = document.querySelector('button[aria-label="See more"]');
+        // Button either disappeared or is no longer loading
+        return !button || !button.hasAttribute('disabled');
+      },
+      { timeout: 30000 }
+    ).catch(() => {
+      console.log('[TERMS] ⚠️  Timeout waiting for terms to load');
+    });
+
+    // Give it a bit more time to be safe
+    await randomDelay(2000, 3000);
 
     // Final count
     const finalCount = await page.evaluate(() => {
       return document.querySelectorAll('[class*="TermText"], [class*="SetPageTerm"]').length;
     });
 
-    console.log(`[TERMS] ✅ Expansion complete. Total clicks: ${totalClicks}, Final term elements: ${finalCount}`);
+    console.log(`[TERMS] ✅ All terms loaded. Final term elements: ${finalCount}`);
 
   } catch (error: any) {
     console.warn(`[TERMS] ⚠️  Expansion error (non-critical): ${error.message}`);
@@ -759,12 +680,16 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
 
       // Strategy 1: Look for TermText class pattern
       const termTextElements = document.querySelectorAll('[class*="TermText"]');
+      console.log(`[EXTRACT DEBUG] Strategy 1: Found ${termTextElements.length} TermText elements`);
+
       if (termTextElements.length >= 2) {
         const texts: string[] = [];
         termTextElements.forEach(el => {
           const text = el.textContent?.trim();
           if (text) texts.push(text);
         });
+
+        console.log(`[EXTRACT DEBUG] Strategy 1: Got ${texts.length} text items`);
 
         // Pair them up (term, definition, term, definition, ...)
         for (let i = 0; i < texts.length; i += 2) {
@@ -775,6 +700,8 @@ async function extractTerms(state: ScraperState): Promise<QuizletData | null> {
             });
           }
         }
+
+        console.log(`[EXTRACT DEBUG] Strategy 1: Extracted ${results.length} terms`);
       }
 
       // Strategy 2: Look for SetPageTerm structure

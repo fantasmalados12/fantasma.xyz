@@ -5,14 +5,17 @@ export interface CaptchaSolution {
   success: boolean;
   token?: string;
   error?: string;
-  type?: 'turnstile' | 'recaptcha-v2' | 'recaptcha-v3' | 'hcaptcha';
+  type?: 'turnstile' | 'recaptcha-v2' | 'recaptcha-v3' | 'hcaptcha' | 'geetest' | 'datadome';
 }
 
 export interface CaptchaDetectionResult {
   detected: boolean;
-  type: 'turnstile' | 'recaptcha-v2' | 'recaptcha-v3' | 'hcaptcha' | null;
+  type: 'turnstile' | 'recaptcha-v2' | 'recaptcha-v3' | 'hcaptcha' | 'geetest' | 'datadome' | null;
   siteKey: string | null;
   action?: string; // For reCAPTCHA v3
+  gt?: string; // For GeeTest
+  challenge?: string; // For GeeTest
+  captchaUrl?: string; // For DataDome
 }
 
 export interface ProxyConfig {
@@ -20,6 +23,14 @@ export interface ProxyConfig {
   username?: string;
   password?: string;
 }
+
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+];
 
 /**
  * Universal CAPTCHA solver supporting Turnstile, reCAPTCHA, and hCaptcha
@@ -53,6 +64,26 @@ export class TwoCaptchaSolver {
    */
   async detectCaptcha(page: Page): Promise<CaptchaDetectionResult> {
     const html = await page.content();
+
+    // Check for DataDome first (press & hold type)
+    const datadomeData = await this.extractDataDomeInfo(page, html);
+    if (datadomeData.captchaUrl) {
+      console.log('[2CAPTCHA] 🔍 Detected: DataDome (Press & Hold)');
+      return { detected: true, type: 'datadome', siteKey: null, captchaUrl: datadomeData.captchaUrl };
+    }
+
+    // Check for GeeTest (another press & hold type)
+    const geetestData = await this.extractGeeTestInfo(page, html);
+    if (geetestData.gt) {
+      console.log('[2CAPTCHA] 🔍 Detected: GeeTest');
+      return {
+        detected: true,
+        type: 'geetest',
+        siteKey: geetestData.gt,
+        gt: geetestData.gt,
+        challenge: geetestData.challenge || undefined
+      };
+    }
 
     // Check for Turnstile
     const turnstileKey = this.extractTurnstileSiteKey(html);
@@ -94,8 +125,21 @@ export class TwoCaptchaSolver {
       return { success: false, error: '2Captcha service not enabled' };
     }
 
-    if (!detection.detected || !detection.siteKey) {
+    if (!detection.detected) {
       return { success: false, error: 'No captcha detected' };
+    }
+
+    // Validate required parameters based on captcha type
+    if (detection.type === 'datadome' && !detection.captchaUrl) {
+      return { success: false, error: 'DataDome captcha URL required' };
+    }
+
+    if (detection.type === 'geetest' && (!detection.gt || !detection.challenge)) {
+      return { success: false, error: 'GeeTest parameters (gt/challenge) required' };
+    }
+
+    if (['turnstile', 'recaptcha-v2', 'recaptcha-v3', 'hcaptcha'].includes(detection.type || '') && !detection.siteKey) {
+      return { success: false, error: 'Site key required' };
     }
 
     console.log(`[2CAPTCHA] 🔄 Solving ${detection.type}...`);
@@ -107,6 +151,32 @@ export class TwoCaptchaSolver {
       const proxyConfig = this.buildProxyConfig();
 
       switch (detection.type) {
+        case 'datadome':
+          // DataDome requires the captcha URL and user agent
+          if (!detection.captchaUrl) {
+            return { success: false, error: 'DataDome captcha URL not found' };
+          }
+          result = await this.solver.dataDome({
+            pageurl: url,
+            captcha_url: detection.captchaUrl,
+            userAgent: USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+            ...proxyConfig
+          });
+          break;
+
+        case 'geetest':
+          // GeeTest requires gt and challenge parameters
+          if (!detection.gt || !detection.challenge) {
+            return { success: false, error: 'GeeTest parameters (gt/challenge) not found' };
+          }
+          result = await this.solver.geetest({
+            pageurl: url,
+            gt: detection.gt,
+            challenge: detection.challenge,
+            ...proxyConfig
+          });
+          break;
+
         case 'turnstile':
           result = await this.solver.cloudflareTurnstile({
             pageurl: url,
@@ -170,6 +240,28 @@ export class TwoCaptchaSolver {
 
     try {
       switch (solution.type) {
+        case 'datadome':
+          // DataDome typically auto-validates, just wait for redirect or reload
+          console.log('[2CAPTCHA] 💉 DataDome solution received, waiting for auto-validation...');
+          await page.evaluate((token: string) => {
+            // Set the cookie if needed
+            const win = window as any;
+            if (win.dataDomeOptions) {
+              win.dataDomeOptions.responsePageUrl = token;
+            }
+          }, solution.token);
+          break;
+
+        case 'geetest':
+          await page.evaluate((token: string) => {
+            // GeeTest response is typically handled via callback
+            const win = window as any;
+            if (win.geetest_challenge) {
+              win.geetest_challenge.verify(token);
+            }
+          }, solution.token);
+          break;
+
         case 'turnstile':
           await page.evaluate((token: string) => {
             const inputs = document.querySelectorAll<HTMLInputElement>(
@@ -338,6 +430,77 @@ export class TwoCaptchaSolver {
     }
 
     return null;
+  }
+
+  private async extractDataDomeInfo(page: Page, html: string): Promise<{ captchaUrl: string | null }> {
+    // Check for DataDome patterns
+    const hasDataDomeText = html.includes('Press & Hold') ||
+                           html.includes('press and hold') ||
+                           html.includes('datadome') ||
+                           html.includes('DataDome');
+
+    if (!hasDataDomeText) {
+      return { captchaUrl: null };
+    }
+
+    // Try to get the captcha URL from the page
+    const captchaUrl = await page.evaluate(() => {
+      // Check for DataDome-specific elements
+      const datadomeElement = document.querySelector('[data-datadome], #datadome, .datadome');
+      if (datadomeElement) {
+        return window.location.href;
+      }
+
+      // Check for the "Press & Hold" text
+      const bodyText = document.body.innerText;
+      if (bodyText.includes('Press & Hold') || bodyText.includes('press and hold')) {
+        return window.location.href;
+      }
+
+      return null;
+    }).catch(() => null);
+
+    return { captchaUrl };
+  }
+
+  private async extractGeeTestInfo(page: Page, html: string): Promise<{ gt: string | null; challenge: string | null }> {
+    // Check for GeeTest patterns
+    const hasGeeTest = html.includes('geetest') || html.includes('GeeTest');
+
+    if (!hasGeeTest) {
+      return { gt: null, challenge: null };
+    }
+
+    // Try to extract GeeTest parameters
+    const geetestData = await page.evaluate(() => {
+      // Check window object for GeeTest config
+      const win = window as any;
+      if (win.gt_custom_ajax) {
+        return {
+          gt: win.gt_custom_ajax.gt || null,
+          challenge: win.gt_custom_ajax.challenge || null
+        };
+      }
+
+      // Try to find it in script tags
+      const scripts = Array.from(document.querySelectorAll('script'));
+      for (const script of scripts) {
+        const content = script.textContent || '';
+        const gtMatch = content.match(/gt['":\s]+['"]([a-f0-9]{32})['"]/i);
+        const challengeMatch = content.match(/challenge['":\s]+['"]([a-f0-9]{32})['"]/i);
+
+        if (gtMatch && challengeMatch) {
+          return {
+            gt: gtMatch[1],
+            challenge: challengeMatch[1]
+          };
+        }
+      }
+
+      return { gt: null, challenge: null };
+    }).catch(() => ({ gt: null, challenge: null }));
+
+    return geetestData;
   }
 
   async getBalance(): Promise<number | null> {
