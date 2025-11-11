@@ -17,6 +17,25 @@ PROXY_USERNAME=your_username
 PROXY_PASSWORD=your_password
 ```
 
+### 2Captcha Configuration (Recommended for VPS)
+
+```bash
+# 2Captcha API key - Get from https://2captcha.com
+TWOCAPTCHA_API_KEY=your_2captcha_api_key_here
+```
+
+**How it works:**
+- When Cloudflare Turnstile gets stuck (shows "Stuck here? Send feedback")
+- The scraper automatically sends the challenge to 2Captcha
+- Real workers solve the challenge (takes 10-30 seconds)
+- The solution token is injected back into the page
+- The challenge completes and scraping continues
+
+**Cost:**
+- ~$2.99 per 1000 Turnstile solves
+- Average solve time: 10-30 seconds
+- Success rate: 95-99%
+
 ### Chrome Path (VPS Specific)
 
 ```bash
@@ -84,9 +103,14 @@ sudo apt-get install -f
 2. Set environment variables (add to `.env` or export):
 ```bash
 export CHROME_PATH=/usr/bin/chromium-browser
+
+# Residential proxy (highly recommended)
 export PROXY_SERVER=your-proxy-host:port
 export PROXY_USERNAME=your-username
 export PROXY_PASSWORD=your-password
+
+# 2Captcha (recommended for VPS)
+export TWOCAPTCHA_API_KEY=your_api_key_here
 ```
 
 3. Deploy your application with these environment variables
@@ -98,6 +122,8 @@ To test if the configuration works, check the console output for:
 ```
 🌐 Using proxy: your-proxy-host:port
 🎭 Using User-Agent: Mozilla/5.0...
+✅ 2Captcha integration enabled
+💰 2Captcha balance: $5.23
 ```
 
 If you see Cloudflare challenges, screenshots will be output as base64:
@@ -130,9 +156,22 @@ To view base64 screenshots:
 
 You'll know it's working when you see:
 
+**Without 2Captcha (automatic bypass):**
 ```
 ✅ Successfully passed Cloudflare challenge (if any)
 Scraped title from Quizlet: "Your Set Title"
+Scraped X terms
+```
+
+**With 2Captcha (when challenge gets stuck):**
+```
+⚠️ Challenge appears stuck - Cloudflare may have detected automation
+🔄 Attempting to solve with 2Captcha service...
+✅ Found Turnstile site key: 0x4AAA...
+🔄 Sending Turnstile challenge to 2Captcha...
+✅ 2Captcha solved the challenge!
+✅ Token injected successfully, waiting for verification...
+✅ Challenge appears to be passed! Main page shows content.
 Scraped X terms
 ```
 

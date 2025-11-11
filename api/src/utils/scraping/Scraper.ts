@@ -2,6 +2,7 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer';
+import { TwoCaptchaSolver } from './TwoCaptchaSolver';
 
 // Add stealth plugin
 puppeteer.use(StealthPlugin());
@@ -32,6 +33,14 @@ function getRandomUserAgent(): string {
 export async function scrapeQuizlet(url: string): Promise<QuizletData> {
   let browser: Browser | null = null;
   let page: Page | null = null;
+
+  // Initialize 2Captcha solver
+  const captchaSolver = new TwoCaptchaSolver();
+
+  // Check balance if enabled
+  if (captchaSolver.isEnabled()) {
+    await captchaSolver.getBalance();
+  }
 
   try {
     // Build launch args
@@ -633,10 +642,65 @@ export async function scrapeQuizlet(url: string): Promise<QuizletData> {
                   break;
                 }
 
-                // If stuck, this likely means bot detection - need different approach
+                // If stuck, this likely means bot detection - try 2Captcha if enabled
                 if (challengeStatus.hasStuck || challengeStatus.hasFeedback) {
                   console.log('⚠️ Challenge appears stuck - Cloudflare may have detected automation');
-                  console.log('💡 Recommendation: Use a residential proxy or captcha solving service');
+
+                  if (captchaSolver.isEnabled()) {
+                    console.log('🔄 Attempting to solve with 2Captcha service...');
+
+                    // Get the page HTML to extract site key
+                    const pageHtml = await page.content();
+                    const siteKey = captchaSolver.extractSiteKey(pageHtml);
+
+                    if (siteKey) {
+                      const solution = await captchaSolver.solveTurnstile(url, siteKey);
+
+                      if (solution.success && solution.token) {
+                        console.log('✅ Got solution from 2Captcha, injecting token...');
+
+                        // Inject the solution token into the page
+                        const injected = await frame.evaluate((token) => {
+                          // Find the Turnstile response input
+                          const responseInput = document.querySelector('input[name="cf-turnstile-response"]') as HTMLInputElement;
+                          if (responseInput) {
+                            responseInput.value = token;
+                            console.log('Injected 2Captcha token into response input');
+
+                            // Trigger change event
+                            const event = new Event('change', { bubbles: true });
+                            responseInput.dispatchEvent(event);
+
+                            // Try to find and click submit button
+                            const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+                            if (submitButton) {
+                              submitButton.click();
+                              console.log('Clicked submit button');
+                            }
+
+                            return true;
+                          }
+                          return false;
+                        }, solution.token).catch(() => false);
+
+                        if (injected) {
+                          console.log('✅ Token injected successfully, waiting for verification...');
+                          await new Promise(resolve => setTimeout(resolve, 3000));
+                        } else {
+                          console.log('⚠️ Could not inject token - response input not found');
+                        }
+                      } else {
+                        console.log('❌ 2Captcha failed to solve:', solution.error);
+                        console.log('💡 Recommendation: Check your 2Captcha balance and API key');
+                      }
+                    } else {
+                      console.log('⚠️ Could not find Turnstile site key in page HTML');
+                    }
+                  } else {
+                    console.log('💡 Recommendation: Use 2Captcha service or a residential proxy');
+                    console.log('   Set TWOCAPTCHA_API_KEY environment variable to enable 2Captcha');
+                  }
+
                   stillProcessing = false;
                   break;
                 }
