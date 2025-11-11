@@ -404,7 +404,7 @@ async function handleCaptcha(state: ScraperState): Promise<boolean> {
   await randomDelay(1000, 1500);
   await saveScreenshot(state, 'captcha-solved');
 
-  const recheck = await state.captchaSolver.detectCaptcha(state.page);
+  const recheck = await state.captchaSolver.detectCaptcha(state.page, iframeUrl);
   if (recheck.detected) {
     console.warn('[CAPTCHA] ⚠️ Captcha still present after solving, may need retry');
     return false;
