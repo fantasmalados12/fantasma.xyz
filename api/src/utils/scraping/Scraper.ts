@@ -662,9 +662,7 @@ export async function expandAndExtractTerms(
   const allTerms = new Map<string, { term: string; definition: string }>>();
 
   try {
-    // ─────────────────────────────────────────────
     // Step 1: Get expected term count (for metrics)
-    // ─────────────────────────────────────────────
     const expectedCount = await page.evaluate(() => {
       const bodyText = document.body.innerText;
       const match = bodyText.match(/Terms in this set[^\d]*\((\d+)\)/i);
@@ -672,15 +670,13 @@ export async function expandAndExtractTerms(
     });
     if (expectedCount) console.log(`[TERMS] 🎯 Expected: ${expectedCount} terms`);
 
-    // ─────────────────────────────────────────────
     // Step 2: Click "See more" until all terms load
-    // ─────────────────────────────────────────────
     let lastCount = 0;
     let stableRounds = 0;
     const maxStableRounds = 3;
 
     while (true) {
-      // Close modals/overlays that might block clicks
+      // Close modals
       await page.evaluate(() => {
         const closeSelectors = [
           'button[aria-label="Close"]',
@@ -695,11 +691,9 @@ export async function expandAndExtractTerms(
         }
       });
 
-      // Scroll to bottom to reveal button
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await randomDelay(400, 700);
 
-      // Find and click the "See more" button if it exists
       const button = await page.$('button[aria-label="See more"]');
       if (!button) {
         console.log('[TERMS] ✅ No "See more" button found — checking for infinite scroll...');
@@ -709,17 +703,23 @@ export async function expandAndExtractTerms(
       console.log('[TERMS] 🔘 Clicking "See more"');
       await button.click();
 
-      // Wait for new terms to appear
-      await page.waitForFunction(
-        (prev) => document.querySelectorAll('[aria-label="Term"]').length > prev,
-        { polling: 500, timeout: 6000 },
-        lastCount
-      ).catch(() => null);
+      // Wait safely for new terms or timeout
+      try {
+        await page.waitForFunction(
+          (prev: number) => document.querySelectorAll('[aria-label="Term"]').length > prev,
+          { polling: 500, timeout: 6000 },
+          lastCount
+        );
+      } catch {
+        // ignore timeout
+      }
 
       await randomDelay(700, 1000);
 
-      // Check how many terms exist now
-      const termCountAfter = await page.evaluate(() => document.querySelectorAll('[aria-label="Term"]').length);
+      const termCountAfter = await page.evaluate(() =>
+        document.querySelectorAll('[aria-label="Term"]').length
+      );
+
       console.log(`[TERMS] 📈 Term count: ${termCountAfter}`);
 
       if (termCountAfter === lastCount) {
@@ -736,26 +736,22 @@ export async function expandAndExtractTerms(
       }
     }
 
-    // ─────────────────────────────────────────────
-    // Step 3: Handle infinite scroll (backup)
-    // ─────────────────────────────────────────────
+    // Step 3: Infinite scroll fallback
     console.log('[TERMS] 🔄 Scrolling to load any remaining virtualized terms...');
     await page.evaluate(async () => {
       let prevCount = 0;
-      let stableRounds = 0;
-      while (stableRounds < 3) {
+      let stable = 0;
+      while (stable < 3) {
         window.scrollTo(0, document.body.scrollHeight);
         await new Promise(r => setTimeout(r, 800));
-        const currentCount = document.querySelectorAll('[aria-label="Term"]').length;
-        if (currentCount === prevCount) stableRounds++;
-        else stableRounds = 0;
-        prevCount = currentCount;
+        const curr = document.querySelectorAll('[aria-label="Term"]').length;
+        if (curr === prevCount) stable++;
+        else stable = 0;
+        prevCount = curr;
       }
     });
 
-    // ─────────────────────────────────────────────
-    // Step 4: Extract all terms
-    // ─────────────────────────────────────────────
+    // Step 4: Extract terms
     console.log('[TERMS] 📦 Extracting all terms from DOM...');
     const terms = await extractAllTermsFromDOM(page);
     for (const t of terms) {
