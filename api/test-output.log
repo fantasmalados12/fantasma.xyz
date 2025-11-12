@@ -1,0 +1,881 @@
+
+🧪 STARTING SCRAPER TESTS
+Each URL will be tested 3 times to ensure consistency
+
+
+================================================================================
+Testing URL (Attempt 1): https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Unit 5 Nouns Flashcards | Quizlet',
+  textLength: 3391,
+  htmlLength: 1511020,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 54,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Unit 5 Nouns\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blocks\n' +
+    'Match\n'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 384 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 200 terms loaded
+[TERMS] ✅ Clicked "See more" button (2)
+[TERMS] 📊 After click 2: 300 terms loaded
+[TERMS] ✅ Clicked "See more" button (3)
+[TERMS] 📊 After click 3: 384 terms loaded
+[TERMS] ℹ️  Reached target 384/384, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 3 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 1156 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 384 expected terms
+[EXTRACT] 📊 Scroll 1: 384/384 terms (+384 new)
+[EXTRACT] 📊 Scroll 5: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 384/384 terms (+0 new)
+[EXTRACT] ✅ Reached 384 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 384/384 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Unit 5 Nouns" with 384 terms
+[SCRAPER] ✅ Successfully extracted 384 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Unit 5 Nouns
+[SCRAPER] 📝 Terms: 384
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Unit 5 Nouns
+   Terms extracted: 384
+
+⏳ Waiting 2 seconds before next test...
+
+================================================================================
+Testing URL (Attempt 2): https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Unit 5 Nouns Flashcards | Quizlet',
+  textLength: 3391,
+  htmlLength: 1512004,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 65,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Unit 5 Nouns\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blocks\n' +
+    'Match\n'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 384 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 200 terms loaded
+[TERMS] ✅ Clicked "See more" button (2)
+[TERMS] 📊 After click 2: 300 terms loaded
+[TERMS] ✅ Clicked "See more" button (3)
+[TERMS] 📊 After click 3: 384 terms loaded
+[TERMS] ℹ️  Reached target 384/384, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 3 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 1156 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 384 expected terms
+[EXTRACT] 📊 Scroll 1: 384/384 terms (+384 new)
+[EXTRACT] 📊 Scroll 5: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 384/384 terms (+0 new)
+[EXTRACT] ✅ Reached 384 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 384/384 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Unit 5 Nouns" with 384 terms
+[SCRAPER] ✅ Successfully extracted 384 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Unit 5 Nouns
+[SCRAPER] 📝 Terms: 384
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Unit 5 Nouns
+   Terms extracted: 384
+
+⏳ Waiting 2 seconds before next test...
+
+================================================================================
+Testing URL (Attempt 3): https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Unit 5 Nouns Flashcards | Quizlet',
+  textLength: 3416,
+  htmlLength: 1511139,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 61,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Unit 5 Nouns\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blocks\n' +
+    'Match\n'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 384 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 200 terms loaded
+[TERMS] ✅ Clicked "See more" button (2)
+[TERMS] 📊 After click 2: 300 terms loaded
+[TERMS] ✅ Clicked "See more" button (3)
+[TERMS] 📊 After click 3: 384 terms loaded
+[TERMS] ℹ️  Reached target 384/384, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 3 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 1156 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 384 expected terms
+[EXTRACT] 📊 Scroll 1: 384/384 terms (+384 new)
+[EXTRACT] 📊 Scroll 5: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 384/384 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 384/384 terms (+0 new)
+[EXTRACT] ✅ Reached 384 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 384/384 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Unit 5 Nouns" with 384 terms
+[SCRAPER] ✅ Successfully extracted 384 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Unit 5 Nouns
+[SCRAPER] 📝 Terms: 384
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Unit 5 Nouns
+   Terms extracted: 384
+
+================================================================================
+Testing URL (Attempt 1): https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Department: Chapter 23 Flashcards | Quizlet',
+  textLength: 5627,
+  htmlLength: 1337197,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 56,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Department: Chapter 23\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blo'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 160 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 160 terms loaded
+[TERMS] ℹ️  Reached target 160/160, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 1 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 482 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 160 expected terms
+[EXTRACT] 📊 Scroll 1: 160/160 terms (+160 new)
+[EXTRACT] 📊 Scroll 5: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 160/160 terms (+0 new)
+[EXTRACT] ✅ Reached 160 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 160/160 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Department: Chapter 23" with 160 terms
+[SCRAPER] ✅ Successfully extracted 160 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Department: Chapter 23
+[SCRAPER] 📝 Terms: 160
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Department: Chapter 23
+   Terms extracted: 160
+
+⏳ Waiting 2 seconds before next test...
+
+================================================================================
+Testing URL (Attempt 2): https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Department: Chapter 23 Flashcards | Quizlet',
+  textLength: 5655,
+  htmlLength: 1346253,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 45,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Department: Chapter 23\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blo'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 160 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 160 terms loaded
+[TERMS] ℹ️  Reached target 160/160, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 1 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 482 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 160 expected terms
+[EXTRACT] 📊 Scroll 1: 160/160 terms (+160 new)
+[EXTRACT] 📊 Scroll 5: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 160/160 terms (+0 new)
+[EXTRACT] ✅ Reached 160 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 160/160 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Department: Chapter 23" with 160 terms
+[SCRAPER] ✅ Successfully extracted 160 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Department: Chapter 23
+[SCRAPER] 📝 Terms: 160
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Department: Chapter 23
+   Terms extracted: 160
+
+⏳ Waiting 2 seconds before next test...
+
+================================================================================
+Testing URL (Attempt 3): https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Department: Chapter 23 Flashcards | Quizlet',
+  textLength: 5631,
+  htmlLength: 1342630,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 56,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Department: Chapter 23\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blo'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 160 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 160 terms loaded
+[TERMS] ℹ️  Reached target 160/160, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 1 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 482 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 160 expected terms
+[EXTRACT] 📊 Scroll 1: 160/160 terms (+160 new)
+[EXTRACT] 📊 Scroll 5: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 160/160 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 160/160 terms (+0 new)
+[EXTRACT] ✅ Reached 160 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 160/160 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Department: Chapter 23" with 160 terms
+[SCRAPER] ✅ Successfully extracted 160 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Department: Chapter 23
+[SCRAPER] 📝 Terms: 160
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Department: Chapter 23
+   Terms extracted: 160
+
+================================================================================
+Testing URL (Attempt 1): https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Department: Chapter 22 Flashcards | Quizlet',
+  textLength: 5642,
+  htmlLength: 1368833,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 43,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Department: Chapter 22\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blo'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 177 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 177 terms loaded
+[TERMS] ℹ️  Reached target 177/177, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 1 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 533 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 177 expected terms
+[EXTRACT] 📊 Scroll 1: 177/177 terms (+177 new)
+[EXTRACT] 📊 Scroll 5: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 177/177 terms (+0 new)
+[EXTRACT] ✅ Reached 177 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 177/177 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Department: Chapter 22" with 177 terms
+[SCRAPER] ✅ Successfully extracted 177 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Department: Chapter 22
+[SCRAPER] 📝 Terms: 177
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Department: Chapter 22
+   Terms extracted: 177
+
+⏳ Waiting 2 seconds before next test...
+
+================================================================================
+Testing URL (Attempt 2): https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Department: Chapter 22 Flashcards | Quizlet',
+  textLength: 5605,
+  htmlLength: 1364450,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 38,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Department: Chapter 22\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blo'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 177 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 177 terms loaded
+[TERMS] ℹ️  Reached target 177/177, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 1 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 533 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 177 expected terms
+[EXTRACT] 📊 Scroll 1: 177/177 terms (+177 new)
+[EXTRACT] 📊 Scroll 5: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 177/177 terms (+0 new)
+[EXTRACT] ✅ Reached 177 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 177/177 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Department: Chapter 22" with 177 terms
+[SCRAPER] ✅ Successfully extracted 177 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Department: Chapter 22
+[SCRAPER] 📝 Terms: 177
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Department: Chapter 22
+   Terms extracted: 177
+
+⏳ Waiting 2 seconds before next test...
+
+================================================================================
+Testing URL (Attempt 3): https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+================================================================================
+
+======================================================================
+[SCRAPER] 🚀 Starting Quizlet scraper
+[SCRAPER] 🔗 URL: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+[SCRAPER] 📸 Screenshots: false
+[SCRAPER] 🌐 Proxy: false
+[SCRAPER] 🔄 Max retries: 1
+======================================================================
+
+[2CAPTCHA] ✅ Service enabled
+[2CAPTCHA] 💰 Balance: $5
+
+[SCRAPER] 🔄 Attempt 1/1
+[BROWSER] 🚀 Launching...
+[BROWSER] ✅ Launched successfully
+[PAGE] 📄 Creating new page...
+[PAGE] 🚫 Resource blocking enabled
+[PAGE] 🎭 User agent set
+[PAGE] ✅ Initialized with stealth scripts
+[NAV] 🔗 Navigating to: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2jmptl&x=1jqt
+[NAV] 📡 Response status: 200
+[NAV] 📄 Page check: {
+  title: 'DLI Spanish Department: Chapter 22 Flashcards | Quizlet',
+  textLength: 5629,
+  htmlLength: 1342785,
+  hasContent: true,
+  isError: false,
+  navTimedOut: false
+}
+[NAV] 📋 Final check: {
+  elements: 59,
+  preview: 'Study tools\n' +
+    'Subjects\n' +
+    'Create\n' +
+    'Log in\n' +
+    'DLI Spanish Department: Chapter 22\n' +
+    'Save\n' +
+    'Flashcards\n' +
+    'Learn\n' +
+    'Test\n' +
+    'Blo'
+}
+[NAV] ✅ Navigation successful
+[HUMAN] 🤖 Simulating human behavior...
+[HUMAN] ✅ Behavior simulation complete
+[CAPTCHA] 🔍 Smart captcha check...
+[CAPTCHA] ✅ Page has valid content, skipping captcha check
+[EXTRACT] 📚 Extracting terms and title...
+[TERMS] 📈 Expanding all terms...
+[TERMS] 🎯 Target: 177 terms expected
+[TERMS] ✅ Clicked "See more" button (1)
+[TERMS] 📊 After click 1: 177 terms loaded
+[TERMS] ℹ️  Reached target 177/177, but continuing to check for more...
+[TERMS] ✅ No more "See more" buttons found after 5 checks
+[TERMS] ✅ Clicked "See more" 1 times total
+[TERMS] ⏳ Waiting for terms to load...
+[TERMS] ✅ Found terms using selector: [class*="TermText"]
+[TERMS] ✅ Terms stable at 533 elements
+[EXTRACT] ✅ Valid page confirmed, extracting all terms...
+[EXTRACT] 📜 Progressively extracting terms while scrolling...
+[EXTRACT] 📊 Starting extraction for 177 expected terms
+[EXTRACT] 📊 Scroll 1: 177/177 terms (+177 new)
+[EXTRACT] 📊 Scroll 5: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 10: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 15: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 20: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 25: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 30: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 35: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 40: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 45: 177/177 terms (+0 new)
+[EXTRACT] 📊 Scroll 50: 177/177 terms (+0 new)
+[EXTRACT] ✅ Reached 177 terms with 50 scrolls of no new terms
+[EXTRACT] ✅ Collected 177/177 unique terms total after 51 scrolls
+[EXTRACT] ✅ Extracted "DLI Spanish Department: Chapter 22" with 177 terms
+[SCRAPER] ✅ Successfully extracted 177 terms
+
+======================================================================
+[SCRAPER] ✅ SUCCESS!
+[SCRAPER] 📚 Title: DLI Spanish Department: Chapter 22
+[SCRAPER] 📝 Terms: 177
+======================================================================
+
+
+✅ Scrape completed!
+   Title: DLI Spanish Department: Chapter 22
+   Terms extracted: 177
+
+
+================================================================================
+📊 TEST SUMMARY
+================================================================================
+
+URL: https://quizlet.com/1096020363/dli-spanish-unit-5-nouns-flash-cards/?i=2jmptl&x=...
+Expected: 384 terms
+  Attempt 1: ✅ 384 terms
+  Attempt 2: ✅ 384 terms
+  Attempt 3: ✅ 384 terms
+Result: ✅ PASSED
+
+URL: https://quizlet.com/698979832/dli-spanish-department-chapter-23-flash-cards/?i=2...
+Expected: 160 terms
+  Attempt 1: ✅ 160 terms
+  Attempt 2: ✅ 160 terms
+  Attempt 3: ✅ 160 terms
+Result: ✅ PASSED
+
+URL: https://quizlet.com/765281429/dli-spanish-department-chapter-22-flash-cards/?i=2...
+Expected: 177 terms
+  Attempt 1: ✅ 177 terms
+  Attempt 2: ✅ 177 terms
+  Attempt 3: ✅ 177 terms
+Result: ✅ PASSED
+
+================================================================================
+🎉 ALL TESTS PASSED! The scraper is working correctly.
+================================================================================
+
