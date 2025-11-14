@@ -106,9 +106,31 @@ const getCognateScore = (spanishTerm: string, englishDefinition: string): number
  * Determine basic part-of-speech from Spanish term (approximation)
  */
 const detectPOS = (term: string): 'verb' | 'noun' | 'adjective' => {
-  if (/(ar|er|ir)$/.test(term) && term.split(" ")[0]) return 'verb';
-//   if (/ado$|ido$|oso$|osa$|ante$|ente$|ico$|ica$|al$|ble$/.test(term)) return 'adjective';
-    if (term.split(" ")[0] === "la" || term.split(" ")[0] === "el") return 'noun';
+  const words = term.trim().toLowerCase().split(/\s+/);
+  const firstWord = words[0];
+
+  // Check for articles first - strong indicator of noun
+  const articles = ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas'];
+  if (articles.includes(firstWord)) return 'noun';
+
+  // Remove parenthetical stem changes like "(ue)" for verb detection
+  const cleanedFirstWord = firstWord.replace(/\([^)]*\)/g, '').trim();
+
+  // Check for reflexive verb infinitives ending in "se" (tornarse, oponerse)
+  if (/rse$/.test(cleanedFirstWord)) return 'verb';
+
+  // Check for regular verb infinitive endings (ar|er|ir)
+  if (/(ar|er|ir)$/.test(cleanedFirstWord)) return 'verb';
+
+  // For multi-word expressions, check if the first word is a verb
+  // This handles cases like "declarar la guerra", "condenar a muerte"
+  if (words.length > 1) {
+    if (/rse$/.test(cleanedFirstWord) || /(ar|er|ir)$/.test(cleanedFirstWord)) {
+      return 'verb';
+    }
+  }
+
+  // Default to adjective (everything that's not explicitly a noun with article or a verb)
   return 'adjective';
 };
 

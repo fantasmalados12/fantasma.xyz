@@ -53,9 +53,9 @@ const USER_AGENTS = [
 
 const PROXY_CONFIG = {
   username: 'u613ad942568805c2-zone-custom',
-  password: 'u613ad942568805c2',
+  password: 'u613ad942568805c2', 
   dns: '170.106.118.114',
-  port: 2334
+  port: 2333
 };
 
 const BROWSER_ARGS = [
@@ -630,23 +630,28 @@ async function navigateToUrl(state: ScraperState): Promise<boolean> {
 async function extractAllTermsFromDOM(page: Page): Promise<Array<{ term: string; definition: string }>> {
   return await page.evaluate(() => {
     const results: Array<{ term: string; definition: string }> = [];
+    const elements = document.querySelectorAll('[class*="TermText"]');
 
-    // Use aria-label="Term" to get actual term containers
-    const termContainers = document.querySelectorAll('[aria-label="Term"]');
+    if (elements.length > 0) {
+      const textArray: string[] = [];
 
-    termContainers.forEach(container => {
-      // Inside each term container, find TermText elements
-      const termTexts = container.querySelectorAll('[class*="TermText"]');
+      elements.forEach((el) => {
+        const text = el.textContent?.trim();
+        if (text) {
+          textArray.push(text);
+        }
+      });
 
-      if (termTexts.length >= 2) {
-        const term = termTexts[0]?.textContent?.trim() || '';
-        const definition = termTexts[1]?.textContent?.trim() || '';
-
-        if (term && definition) {
-          results.push({ term, definition });
+      // Pair them up - terms and definitions alternate
+      for (let i = 0; i < textArray.length - 1; i += 2) {
+        if (textArray[i] && textArray[i + 1]) {
+          results.push({
+            term: textArray[i],
+            definition: textArray[i + 1]
+          });
         }
       }
-    });
+    }
 
     return results;
   });
@@ -657,110 +662,186 @@ export async function expandAndExtractTerms(
   progressEmitter?: { termsLoading: () => void }
 ): Promise<Map<string, { term: string; definition: string }>> {
   console.log('[TERMS] 🔄 Starting term extraction...');
-  progressEmitter?.termsLoading();
+  progressEmitter?.termsLoading?.();
 
-  const allTerms = new Map<string, { term: string; definition: string }>>();
+  const allTerms = new Map<string, { term: string; definition: string }>();
 
   try {
-    // Step 1: Get expected term count (for metrics)
+    // Get expected term count for verification
     const expectedCount = await page.evaluate(() => {
       const bodyText = document.body.innerText;
       const match = bodyText.match(/Terms in this set[^\d]*\((\d+)\)/i);
       return match ? parseInt(match[1], 10) : 0;
     });
-    if (expectedCount) console.log(`[TERMS] 🎯 Expected: ${expectedCount} terms`);
 
-    // Step 2: Click "See more" until all terms load
-    let lastCount = 0;
-    let stableRounds = 0;
-    const maxStableRounds = 3;
+    if (expectedCount) console.log(`[TERMS] 🎯 Expected term count: ${expectedCount}`);
 
-    while (true) {
-      // Close modals
-      await page.evaluate(() => {
-        const closeSelectors = [
-          'button[aria-label="Close"]',
-          'button[aria-label="Dismiss"]',
-          '.ReactModal__Overlay button[aria-label*="close" i]',
-          '.ReactModal__Content button',
-          '[class*="Modal"] button[aria-label="Close"]'
-        ];
-        for (const sel of closeSelectors) {
-          const btn = document.querySelector(sel) as HTMLElement;
-          if (btn && btn.offsetHeight > 0) btn.click();
-        }
+    // ------------------------------------------------------------------------
+    // STEP 1: Wait and scroll to load content
+    // ------------------------------------------------------------------------
+    console.log('[TERMS] ⏳ Waiting for content to load...');
+    // Wait for content to load with a more human-like delay
+    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+
+    console.log('[TERMS] 📜 Scrolling down slowly to simulate human behavior...');
+    // Scroll down slowly to simulate human behavior
+    await page.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        let totalHeight = 0;
+        const distance = 100;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+
+          if (totalHeight >= scrollHeight) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100);
       });
-
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await randomDelay(400, 700);
-
-      const button = await page.$('button[aria-label="See more"]');
-      if (!button) {
-        console.log('[TERMS] ✅ No "See more" button found — checking for infinite scroll...');
-        break;
-      }
-
-      console.log('[TERMS] 🔘 Clicking "See more"');
-      await button.click();
-
-      // Wait safely for new terms or timeout
-      try {
-        await page.waitForFunction(
-          (prev: number) => document.querySelectorAll('[aria-label="Term"]').length > prev,
-          { polling: 500, timeout: 6000 },
-          lastCount
-        );
-      } catch {
-        // ignore timeout
-      }
-
-      await randomDelay(700, 1000);
-
-      const termCountAfter = await page.evaluate(() =>
-        document.querySelectorAll('[aria-label="Term"]').length
-      );
-
-      console.log(`[TERMS] 📈 Term count: ${termCountAfter}`);
-
-      if (termCountAfter === lastCount) {
-        stableRounds++;
-        console.log(`[TERMS] ⚠️ No new terms detected (${stableRounds}/${maxStableRounds})`);
-      } else {
-        stableRounds = 0;
-        lastCount = termCountAfter;
-      }
-
-      if (stableRounds >= maxStableRounds) {
-        console.log('[TERMS] 🧭 Stopping: no more new terms detected.');
-        break;
-      }
-    }
-
-    // Step 3: Infinite scroll fallback
-    console.log('[TERMS] 🔄 Scrolling to load any remaining virtualized terms...');
-    await page.evaluate(async () => {
-      let prevCount = 0;
-      let stable = 0;
-      while (stable < 3) {
-        window.scrollTo(0, document.body.scrollHeight);
-        await new Promise(r => setTimeout(r, 800));
-        const curr = document.querySelectorAll('[aria-label="Term"]').length;
-        if (curr === prevCount) stable++;
-        else stable = 0;
-        prevCount = curr;
-      }
     });
 
-    // Step 4: Extract terms
-    console.log('[TERMS] 📦 Extracting all terms from DOM...');
-    const terms = await extractAllTermsFromDOM(page);
-    for (const t of terms) {
-      allTerms.set(`${t.term}::${t.definition}`, t);
+    // ------------------------------------------------------------------------
+    // STEP 2: Click "See more" button repeatedly to load all terms
+    // ------------------------------------------------------------------------
+    console.log('[TERMS] 📖 Clicking "See more" buttons...');
+
+    let clickedButton = true;
+    let clickCount = 0;
+
+    let noIncreaseCount = 0;
+    const maxNoIncrease = 3; // Stop after 3 clicks with no term increase
+
+    while (clickCount < 50 && noIncreaseCount < maxNoIncrease) {
+      // Get current term count BEFORE clicking
+      const termCountBefore = await page.evaluate(() => {
+        return document.querySelectorAll('[aria-label="Term"]').length;
+      });
+
+      console.log(`[TERMS] 📊 Current term count: ${termCountBefore}`);
+
+      // Find the button using Puppeteer (not inside evaluate)
+      const button = await page.$('button[aria-label="See more"]') || await page.$('button[title="See more"]');
+
+      if (button) {
+        // Scroll into view
+        await button.evaluate(el => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+        await randomDelay(300, 500);
+
+        // Use Puppeteer's native click (more reliable for React apps)
+        try {
+          await button.click();
+          clickedButton = true;
+        } catch (error) {
+          console.log(`[TERMS] ⚠️  Failed to click button:`, error);
+          clickedButton = false;
+        }
+      } else {
+        clickedButton = false;
+      }
+
+      if (clickedButton) {
+        console.log(`[TERMS] 🖱️  Clicked "See more" button, waiting for terms to load...`);
+
+        // Poll for term count increase (check every 500ms for up to 10 seconds)
+        let termCountAfter = termCountBefore;
+        let pollAttempts = 0;
+        const maxPollAttempts = 20; // 20 * 500ms = 10 seconds max
+
+        while (pollAttempts < maxPollAttempts && termCountAfter === termCountBefore) {
+          await randomDelay(500, 700);
+          termCountAfter = await page.evaluate(() => {
+            return document.querySelectorAll('[aria-label="Term"]').length;
+          });
+          pollAttempts++;
+
+          if (termCountAfter > termCountBefore) {
+            console.log(`[TERMS] 📈 Terms increased after ${pollAttempts * 500}ms`);
+            break;
+          }
+        }
+
+        if (termCountAfter > termCountBefore) {
+          clickCount++;
+          noIncreaseCount = 0; // Reset counter
+          console.log(`[TERMS] ✅ Click #${clickCount} successful: ${termCountBefore} -> ${termCountAfter} terms`);
+        } else {
+          noIncreaseCount++;
+          console.log(`[TERMS] ⚠️  No new terms after click (waited ${pollAttempts * 500}ms, attempt ${noIncreaseCount}/${maxNoIncrease}): still ${termCountAfter} terms`);
+        }
+      } else {
+        console.log(`[TERMS] ❌ No "See more" button found`);
+        break;
+      }
     }
 
-    console.log(`[TERMS] ✅ Extraction complete: ${allTerms.size} terms extracted (expected ~${expectedCount})`);
+    console.log(`[TERMS] ✅ Finished clicking buttons. Total clicks: ${clickCount}`);
+
+    // Do one final scroll to make sure everything is loaded
+    await page.evaluate(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+    await randomDelay(500, 800);
+
+    // ------------------------------------------------------------------------
+    // STEP 3: Extract ALL terms from the DOM (they should all be there now)
+    // ------------------------------------------------------------------------
+    console.log('[TERMS] 📦 Extracting all terms from DOM...');
+
+    const extracted = await page.evaluate(() => {
+      const results: { term: string; definition: string }[] = [];
+      const elements = document.querySelectorAll('[class*="TermText"]');
+
+      if (elements.length > 0) {
+        const textArray: string[] = [];
+
+        elements.forEach((el) => {
+          const text = el.textContent?.trim();
+          if (text) {
+            textArray.push(text);
+          }
+        });
+
+        // Pair them up - terms and definitions alternate
+        for (let i = 0; i < textArray.length - 1; i += 2) {
+          if (textArray[i] && textArray[i + 1]) {
+            results.push({
+              term: textArray[i],
+              definition: textArray[i + 1]
+            });
+          }
+        }
+
+        console.log(`Extracted ${results.length} terms from ${textArray.length} TermText elements`);
+      } else {
+        console.log('No TermText elements found');
+      }
+
+      return results;
+    });
+
+    console.log(`[TERMS] ✅ Extracted ${extracted.length} terms from DOM`);
+
+    // Add to Map (deduplicates automatically)
+    for (const t of extracted) {
+      const key = `${t.term}::${t.definition}`;
+      allTerms.set(key, t);
+    }
+
+    console.log(`[TERMS] ✅ Total unique terms: ${allTerms.size}`);
+
+    // Verify against expected count
+    if (expectedCount > 0) {
+      if (allTerms.size >= expectedCount) {
+        console.log(`[TERMS] ✅ Got all expected terms: ${allTerms.size}/${expectedCount}`);
+      } else {
+        console.warn(`[TERMS] ⚠️  Got ${allTerms.size}/${expectedCount} terms (${expectedCount - allTerms.size} missing)`);
+      }
+    }
+
   } catch (err: any) {
-    console.warn(`[TERMS] ⚠️ Extraction error: ${err.message}`);
+    console.error(`[TERMS] ❌ Error during extraction: ${err.message}`);
   }
 
   return allTerms;

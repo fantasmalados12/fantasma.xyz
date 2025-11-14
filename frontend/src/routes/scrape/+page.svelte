@@ -1,19 +1,53 @@
 
 <script lang="ts">
     import { getCognateScore } from "../../utils/extras/Cognates";
-    import { addLibrarySet } from "../../utils/LibrarySets";
+    import { addLibrarySet, getIrregularVerbs, getStemChangingVerbs } from "../../utils/LibrarySets";
     import { getVerbConjugations, scrapeURL } from "../../utils/Scraper";
     import { scrapeURLStream, type ProgressEvent } from "../../utils/ScraperStream";
     import { authStore } from "../../utils/authStore.svelte";
+    import { onMount } from "svelte";
+    import { importCSV } from "../../utils/CSVImporter";
+    import { goto } from "$app/navigation";
 
+    // Import method selection
+    let importMethod: 'scrape' | 'csv' = 'csv';  // Default to CSV
+    let csvEnabled: boolean = true;
+    let scrapeEnabled: boolean = true;
 
     let url: string;
+    let csvText: string = '';
+    let csvTitle: string = '';
     let vocabResults: any;
     let vocabularySet: any;
     let setTitle: string = '';
     let loading: boolean = false;
     let showConjugations: boolean = false;
     let conjugations: any = {};
+    let showAddLibraryConfirmation: boolean = false;
+    let irregularVerbs: Map<string, boolean> = new Map();
+    let stemChangingVerbs: Map<string, boolean> = new Map();
+
+    // Fetch import capabilities on mount
+    onMount(async () => {
+        try {
+            const apiUrl = import.meta.env.DEV ? 'http://localhost:3001/api' : 'https://fantasma.xyz/api';
+            const response = await fetch(`${apiUrl}/config/import`);
+            const capabilities = await response.json();
+
+            csvEnabled = capabilities.csvEnabled;
+            scrapeEnabled = capabilities.scrapeEnabled;
+
+            // Set default import method based on what's enabled
+            if (!csvEnabled && scrapeEnabled) {
+                importMethod = 'scrape';
+            } else {
+                importMethod = 'csv';
+            }
+        } catch (error) {
+            console.error('Failed to fetch import capabilities:', error);
+            // Default to both enabled on error
+        }
+    });
 
     // Progress tracking
     let progressMessage: string = '';
@@ -26,6 +60,64 @@
     let showErrorModal: boolean = false;
     let errorMessage: string = '';
     let errorDetails: string = '';
+
+    async function checkIrregularVerbs() {
+        // Get all verb terms from the vocabulary set
+        const verbs = vocabularySet.filter((term: any) => term.pos === 'verb');
+
+        // Check each verb if it's irregular
+        for (const verb of verbs) {
+            try {
+                const response = await getIrregularVerbs(verb.term);
+                irregularVerbs.set(response.verb, response.irregular);
+            } catch (error) {
+                console.error(`Error checking if ${verb.term} is irregular:`, error);
+            }
+        }
+
+        // Trigger reactivity
+        irregularVerbs = irregularVerbs;
+    }
+
+    async function checkStemChangingVerbs() {
+        // Get all verb terms from the vocabulary set
+        const verbs = vocabularySet.filter((term: any) => term.pos === 'verb');
+
+        // Check each verb if it has stem changes
+        for (const verb of verbs) {
+            try {
+                const response = await getStemChangingVerbs(verb.term);
+                stemChangingVerbs.set(response.verb, response.stemChanging);
+            } catch (error) {
+                console.error(`Error checking if ${verb.term} is stem-changing:`, error);
+            }
+        }
+
+        // Trigger reactivity
+        stemChangingVerbs = stemChangingVerbs;
+    }
+
+    async function handleCSVImport() {
+        loading = true;
+
+        try {
+            const results: any = await importCSV(csvText, csvTitle || undefined);
+            vocabResults = results.vocabStats;
+            vocabularySet = results.vocabStats.terms;
+            setTitle = results.title || csvTitle || 'Imported Set';
+
+            // Check irregular and stem-changing verbs
+            await checkIrregularVerbs();
+            await checkStemChangingVerbs();
+        } catch (error: any) {
+            console.error('CSV import failed:', error);
+            errorMessage = 'CSV Import Failed';
+            errorDetails = error.message || 'An unknown error occurred';
+            showErrorModal = true;
+        } finally {
+            loading = false;
+        }
+    }
 
     async function extractQuizlet() {
         loading = true;
@@ -78,13 +170,17 @@
                             break;
                     }
                 },
-                onSuccess: (data: any) => {
+                onSuccess: async (data: any) => {
                     console.log('Scraping completed:', data);
                     vocabResults = data.vocabStats;
                     vocabularySet = data.vocabStats.terms;
                     setTitle = data.title || 'Untitled Set';
                     progressMessage = 'Success!';
                     progressPercent = 100;
+
+                    // Check irregular and stem-changing verbs
+                    await checkIrregularVerbs();
+                    await checkStemChangingVerbs();
                 },
                 onError: (error: string) => {
                     console.error('Scraping error:', error);
@@ -111,6 +207,10 @@
                 setTitle = results.title || 'Untitled Set';
                 progressMessage = 'Success!';
                 progressPercent = 100;
+
+                // Check irregular and stem-changing verbs
+                await checkIrregularVerbs();
+                await checkStemChangingVerbs();
             } catch (fallbackError: any) {
                 console.error('Regular scrape also failed:', fallbackError);
                 errorMessage = 'Scraping Failed';
@@ -161,12 +261,23 @@
         showConjugations = !showConjugations;
     }
 
-    async function addToLibrary() {
+    function addToLibrary() {
+        showAddLibraryConfirmation = true;
+    }
+
+    async function confirmAddLibrary() {
         const userId = authStore.user?.id;
 
         if (userId) {
             await addLibrarySet(setTitle, vocabularySet, userId);
+            showAddLibraryConfirmation = false;
+            // Navigate to vocab-sets page
+            goto('/vocab-sets');
         }
+    }
+
+    function cancelAddLibrary() {
+        showAddLibraryConfirmation = false;
     }
 
         // Example: number of items per page
@@ -177,9 +288,32 @@
     let posFilter: '' | 'noun' | 'verb' | 'adjective' = '';
 
     // Reactive filtered terms based on POS
-    $: filteredTerms = posFilter
-        ? vocabularySet?.filter((term: any) => term.pos === posFilter) || []
-        : vocabularySet || [];
+    $: filteredTerms = (() => {
+        let terms = posFilter
+            ? vocabularySet?.filter((term: any) => term.pos === posFilter) || []
+            : vocabularySet || [];
+
+        // Sort to frontload irregular and stem-changing verbs when showing verbs
+        if (posFilter === 'verb' || posFilter === '') {
+            terms = [...terms].sort((a: any, b: any) => {
+                const aIsVerb = a.pos === 'verb';
+                const bIsVerb = b.pos === 'verb';
+                const aIsIrregular = aIsVerb && irregularVerbs.get(a.term);
+                const bIsIrregular = bIsVerb && irregularVerbs.get(b.term);
+                const aIsStemChanging = aIsVerb && stemChangingVerbs.get(a.term);
+                const bIsStemChanging = bIsVerb && stemChangingVerbs.get(b.term);
+
+                // Irregular verbs first, then stem-changing
+                if (aIsIrregular && !bIsIrregular) return -1;
+                if (!aIsIrregular && bIsIrregular) return 1;
+                if (aIsStemChanging && !bIsStemChanging) return -1;
+                if (!aIsStemChanging && bIsStemChanging) return 1;
+                return 0;
+            });
+        }
+
+        return terms;
+    })();
 
     // Update total pages based on filtered terms
     $: totalPages = filteredTerms.length
@@ -212,47 +346,127 @@
   </div>
 
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
-    <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Quizlet Extractor</h2>
+    <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Import Vocabulary</h2>
 
-    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-      <input
-        type="url"
-        bind:value={url}
-        placeholder="Enter Quizlet link..."
-        class="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border border-gray-300 dark:border-gray-600
-         bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500
-         dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50
-         focus:border-transparent"
-      />
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
+      {#if csvEnabled}
         <button
-            class="flex items-center justify-center gap-2 sm:gap-3 px-4 py-2 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group flex-shrink-0"
-            on:click={async () => {
-                loading = true;
-                try {
-                await extractQuizlet();
-                } finally {
-                loading = false;
-                }
-            }}
+          class="px-4 py-2 font-medium transition-colors {importMethod === 'csv' ? 'text-purple-500 border-b-2 border-purple-500' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          onclick={() => importMethod = 'csv'}
         >
-            {#if loading}
-            <!-- Spinner -->
-                <svg class="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                </svg>
-                <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
-                    Loading...
-                </span>
-            {:else}
-                <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
-                    Extract
-                </span>
-            {/if}
-        </button>   
+          Import CSV
+        </button>
+      {/if}
+      {#if scrapeEnabled}
+        <button
+          class="px-4 py-2 font-medium transition-colors {importMethod === 'scrape' ? 'text-purple-500 border-b-2 border-purple-500' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          onclick={() => importMethod = 'scrape'}
+        >
+          Scrape URL
+        </button>
+      {/if}
     </div>
 
-    </div>
+    <!-- CSV Import -->
+    {#if importMethod === 'csv'}
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Set Title (Optional)
+          </label>
+          <input
+            type="text"
+            bind:value={csvTitle}
+            placeholder="My Vocabulary Set"
+            class="w-full px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border border-gray-300 dark:border-gray-600
+             bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500
+             dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50
+             focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Paste CSV Data
+          </label>
+          <textarea
+            bind:value={csvText}
+            placeholder="term,definition&#10;casa,house&#10;perro,dog&#10;gato,cat"
+            rows="10"
+            class="w-full px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border border-gray-300 dark:border-gray-600
+             bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500
+             dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50
+             focus:border-transparent font-mono"
+          ></textarea>
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Format: term,definition (one per line). First row can be headers.
+          </p>
+        </div>
+
+        <button
+          class="w-full flex items-center justify-center gap-2 sm:gap-3 px-4 py-2 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+          onclick={handleCSVImport}
+          disabled={loading || !csvText.trim()}
+        >
+          {#if loading}
+            <svg class="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+              Importing...
+            </span>
+          {:else}
+            <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+              Import CSV
+            </span>
+          {/if}
+        </button>
+      </div>
+    {/if}
+
+    <!-- URL Scraping -->
+    {#if importMethod === 'scrape'}
+      <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <input
+          type="url"
+          bind:value={url}
+          placeholder="Enter Quizlet link..."
+          class="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base rounded-lg border border-gray-300 dark:border-gray-600
+           bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500
+           dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50
+           focus:border-transparent"
+        />
+        <button
+          class="flex items-center justify-center gap-2 sm:gap-3 px-4 py-2 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group flex-shrink-0"
+          onclick={async () => {
+            loading = true;
+            try {
+              await extractQuizlet();
+            } finally {
+              loading = false;
+            }
+          }}
+        >
+          {#if loading}
+            <svg class="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+              Loading...
+            </span>
+          {:else}
+            <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+              Extract
+            </span>
+          {/if}
+        </button>
+      </div>
+    {/if}
+
+  </div>
 
     <!-- Progress Display -->
     {#if showProgress}
@@ -375,7 +589,7 @@
 
         <!-- Add to Library -->
         <button
-            on:click={addToLibrary}
+            onclick={addToLibrary}
         class="flex items-center justify-center gap-2 sm:gap-3 px-3 py-1.5 sm:p-2 text-sm sm:text-base rounded-md border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
             <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                 Add to Library
@@ -387,14 +601,26 @@
 
         <!-- Paginated list -->
         {#each paginatedItems as term}
-            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-2">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg transition-colors mb-2 {term.pos === 'verb' && irregularVerbs.get(term.term) ? 'bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700' : term.pos === 'verb' && stemChangingVerbs.get(term.term) ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700' : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'}">
                 <!-- Left: Term info -->
                 <div class="flex items-start sm:items-center gap-2 sm:gap-4 flex-1 min-w-0">
                     <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
                         <span class="text-sm sm:text-base">{ term.cognateScore }</span>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate">{ term.term }</p>
+                        <div class="flex flex-wrap items-center gap-1 sm:gap-2">
+                            <p class="font-medium text-sm sm:text-base text-gray-900 dark:text-white">{ term.term }</p>
+                            {#if term.pos === 'verb' && irregularVerbs.get(term.term)}
+                                <span class="px-1.5 py-0.5 sm:px-2 sm:py-1 text-xs font-bold rounded-full bg-amber-500 text-white shadow-sm">
+                                    IRREGULAR
+                                </span>
+                            {/if}
+                            {#if term.pos === 'verb' && stemChangingVerbs.get(term.term)}
+                                <span class="px-1.5 py-0.5 sm:px-2 sm:py-1 text-xs font-bold rounded-full bg-blue-500 text-white shadow-sm">
+                                    STEM-CHANGING
+                                </span>
+                            {/if}
+                        </div>
                         <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">{ term.definition }</p>
                     </div>
                 </div>
@@ -413,7 +639,7 @@
 
                     { #if term.pos === 'verb' }
                         <button
-                            on:click={() => togglePopup(term.term)}
+                            onclick={() => togglePopup(term.term)}
                             class="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:p-2 text-xs sm:text-sm rounded-md border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
                         >
                             <span class="font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
@@ -427,18 +653,18 @@
 
         <!-- Pagination controls -->
         <div class="flex flex-wrap justify-center gap-1 sm:gap-2 mt-4">
-            <button on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Prev</button>
+            <button onclick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Prev</button>
 
             {#each Array(totalPages) as _, index}
                 <button
-                    on:click={() => goToPage(index + 1)}
+                    onclick={() => goToPage(index + 1)}
                     class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded font-medium text-white {currentPage === index + 1 ? 'bg-purple-500' : 'bg-gray-500 dark:text-white'}"
                 >
                     {index + 1}
                 </button>
             {/each}
 
-            <button on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Next</button>
+            <button onclick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50">Next</button>
         </div>
     </div>
     {/if}
@@ -455,7 +681,7 @@
 
                 <button 
                     class="absolute top-4 right-4 text-gray-700 dark:text-gray-300 font-bold text-lg hover:text-purple-500"
-                    on:click={() => showConjugations = false}
+                    onclick={() => showConjugations = false}
                 >
                     X
                 </button>
@@ -484,32 +710,58 @@
                 <tbody>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
                     <td class="px-4 py-2 text-gray-500 dark:text-gray-200">yo</td>
-                    <td class="px-4 py-2 text-purple-500">{ conjugation.conjugations.yo }</td>
+                    <td class="px-4 py-2 text-purple-500">{@html conjugation.conjugations.yo}</td>
                     </tr>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
                     <td class="px-4 py-2  text-gray-500 dark:text-gray-200">tú</td>
-                    <td class="px-4 py-2 text-purple-500">{ conjugation.conjugations["tú"] }</td>
+                    <td class="px-4 py-2 text-purple-500">{@html conjugation.conjugations["tú"]}</td>
                     </tr>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
                     <td class="px-4 py-2  text-gray-500 dark:text-gray-200">él/ella/usted</td>
-                    <td class="px-4 py-2 text-purple-500">{ conjugation.conjugations["él/ella/usted"] }</td>
+                    <td class="px-4 py-2 text-purple-500">{@html conjugation.conjugations["él/ella/usted"]}</td>
                     </tr>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
                     <td class="px-4 py-2  text-gray-500 dark:text-gray-200">nosotros</td>
-                    <td class="px-4 py-2 text-purple-500">{ conjugation.conjugations['nosotros/nosotras'] }</td>
+                    <td class="px-4 py-2 text-purple-500">{@html conjugation.conjugations['nosotros/nosotras']}</td>
                     </tr>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
                     <td class="px-4 py-2  text-gray-500 dark:text-gray-200">vosotros</td>
-                    <td class="px-4 py-2 text-purple-500">{ conjugation.conjugations['vosotros/vosotras'] }</td>
+                    <td class="px-4 py-2 text-purple-500">{@html conjugation.conjugations['vosotros/vosotras']}</td>
                     </tr>
                     <tr class="border-t border-gray-200 dark:border-gray-700">
                     <td class="px-4 py-2  text-gray-500 dark:text-gray-200">ellos/ellas/ustedes</td>
-                    <td class="px-4 py-2 text-purple-500">{ conjugation.conjugations["ellos/ellas/ustedes"] }</td>
+                    <td class="px-4 py-2 text-purple-500">{@html conjugation.conjugations["ellos/ellas/ustedes"]}</td>
                     </tr>
                 </tbody>
                 </table>
             </div>
             {/each}
+        </div>
+    </div>
+{/if}
+
+<!-- Add Library Confirmation Popup -->
+{#if showAddLibraryConfirmation}
+    <div class="fixed inset-0 bg-black/50 z-50 flex justify-center items-center transition-opacity duration-300">
+        <div class="bg-white dark:bg-gray-800 w-96 p-6 rounded-lg shadow-lg transform transition-all duration-300 scale-95 opacity-0 animate-modal-in">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Add to Library</h2>
+            <p class="text-gray-700 dark:text-gray-300 mb-6">
+                Are you sure you want to add "{setTitle}" to your library?
+            </p>
+            <div class="flex gap-3 justify-end">
+                <button
+                    onclick={cancelAddLibrary}
+                    class="px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                    <span class="font-medium text-gray-700 dark:text-gray-300">Cancel</span>
+                </button>
+                <button
+                    onclick={confirmAddLibrary}
+                    class="px-4 py-2 rounded-lg border-2 border-purple-500 bg-purple-500 hover:bg-purple-600 hover:border-purple-600 transition-all"
+                >
+                    <span class="font-medium text-white">Add to Library</span>
+                </button>
+            </div>
         </div>
     </div>
 {/if}
@@ -550,7 +802,7 @@
             <!-- Actions -->
             <div class="flex flex-col sm:flex-row gap-3">
                 <button
-                    on:click={retryExtraction}
+                    onclick={retryExtraction}
                     class="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-colors"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -559,7 +811,7 @@
                     Retry
                 </button>
                 <button
-                    on:click={cancelExtraction}
+                    onclick={cancelExtraction}
                     class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors"
                 >
                     Cancel

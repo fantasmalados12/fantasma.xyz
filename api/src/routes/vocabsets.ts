@@ -30,7 +30,6 @@ router.get("/vocab-sets/vocab-image/:id", async (req: Request, res: Response) =>
     const values: any[] = [set_id];
 
     const result = await postgres.query(query, values);
-    console.log(result.rows);
 
     res.json({ images: result.rows });  
 

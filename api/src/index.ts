@@ -45,6 +45,11 @@ app.use(bodyparser.json({ limit: config.server.bandwidth_limit }));
 // Load all the middlewares from the "./middlewares" directory
 MiddlewareLoader(app);
 
+// Add security middlewares
+import { checkBlockedIP, detectSuspiciousActivity } from './middlewares/security';
+app.use(checkBlockedIP);
+app.use(detectSuspiciousActivity);
+
 // Load all routes dynamically from the "./routes" directory, hosting all exported express Router objects
 RouteLoader(app);
 

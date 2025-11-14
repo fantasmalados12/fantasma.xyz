@@ -23,7 +23,17 @@ export async function getIrregularVerbs(verb: any): Promise<any> {
     const response = await axios.post(`${getAPIUrlBasedOffEnviornment()}/api/spanish/check-irregular`, {
         verb: verb
     });
-    
+
+    return response.data;
+
+}
+
+export async function getStemChangingVerbs(verb: any): Promise<any> {
+
+    const response = await axios.post(`${getAPIUrlBasedOffEnviornment()}/api/spanish/check-stem-changing`, {
+        verb: verb
+    });
+
     return response.data;
 
 }

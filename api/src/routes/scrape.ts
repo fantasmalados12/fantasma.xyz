@@ -2,11 +2,26 @@ import { Router, Request, Response } from 'express';
 import { scrapeQuizlet } from '../utils/scraping/Scraper';
 import { Parser } from 'json2csv';
 import { generateVocabStats } from '../utils/linguistic/Stats';
+import { config, redis } from '..';
+import { getImportCapabilities } from '../utils/types/ImportConfig';
+import { requireFeature, rateLimit } from '../middlewares/security';
 
 const router = Router();
 
-router.post('/', async (req: Request, res: Response) => {
+// Apply rate limiting to scraping endpoint (30 requests per minute)
+router.use(rateLimit(60000, 30));
+
+router.post('/', requireFeature('scraping'), async (req: Request, res: Response) => {
   try {
+    // Check if scraping is enabled in config
+    const capabilities = getImportCapabilities(config);
+    if (!capabilities.scrapeEnabled) {
+      return res.status(403).json({
+        error: 'Scraping is disabled',
+        message: 'URL scraping is currently disabled in the configuration. Please use CSV import instead.'
+      });
+    }
+
     const { url } = req.body;
 
     if (!url) {
@@ -17,7 +32,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid Quizlet URL' });
     }
 
-  const takeScreenshots = false;
+  const takeScreenshots = true;
   const quizletData = await scrapeQuizlet(url, { takeScreenshots });
 
     if (quizletData.terms.length === 0) {

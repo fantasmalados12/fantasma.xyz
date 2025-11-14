@@ -2,8 +2,14 @@ import { Router, Request, Response } from 'express';
 import { scrapeQuizlet } from '../utils/scraping/Scraper';
 import { generateVocabStats } from '../utils/linguistic/Stats';
 import { ProgressEmitter, ProgressEvent } from '../utils/scraping/ProgressEmitter';
+import { config } from '..';
+import { getImportCapabilities } from '../utils/types/ImportConfig';
+import { requireFeature, rateLimit } from '../middlewares/security';
 
 const router = Router();
+
+// Apply rate limiting to streaming endpoint (30 requests per minute)
+router.use(rateLimit(60000, 30));
 
 /**
  * POST /api/scrape-stream
@@ -13,7 +19,17 @@ const router = Router();
  * Request body: { url: string }
  * Response: text/event-stream with progress events
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireFeature('scraping'), async (req: Request, res: Response) => {
+  // Check if scraping is enabled
+  const capabilities = getImportCapabilities(config);
+  if (!capabilities.scrapeEnabled) {
+    res.status(403).json({
+      error: 'Scraping is disabled',
+      message: 'URL scraping is currently disabled in the configuration. Please use CSV import instead.'
+    });
+    return;
+  }
+
   const { url } = req.body;
 
   if (!url) {

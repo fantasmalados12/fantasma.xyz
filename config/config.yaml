@@ -16,6 +16,17 @@ server:
   url_encoded: true
   prod_api_url: http://45.32.68.25/api
 
+import:
+  # Import method: "csv", "scrape", or "both" (default "both")
+  method: "csv"
+
+  csv:
+    max_size: 1000000  # Max CSV size in characters (1MB)
+    max_terms: 1000    # Max number of terms per import
+
+  scrape:
+    enabled: false  # If false, scraping endpoints will return 403
+
 security:
 
   password:

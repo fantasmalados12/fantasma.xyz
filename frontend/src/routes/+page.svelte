@@ -159,7 +159,7 @@
     <h2 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">Quick Actions</h2>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
       {#each quickActions as action}
-        <button on:click={() => { handleNav(action.path) }} class="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
+        <button onclick={() => { handleNav(action.path) }} class="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group">
           {#if action.icon === 'plus'}
             <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

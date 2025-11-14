@@ -2,11 +2,12 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
     import { page } from '$app/stores';
-    import { getLibrarySets } from "../../../utils/LibrarySets";
+    import { getLibrarySets, getImagesFromSet } from "../../../utils/LibrarySets";
     import { goto } from "$app/navigation";
     import { generateSmartExample } from "../../../utils/ExampleSentences";
     import { authStore } from "../../../utils/authStore.svelte";
     import { getAPIUrlBasedOffEnviornment } from "../../../utils/API";
+    import { userSettings } from "../../../utils/settings.svelte";
 
     const API_BASE = getAPIUrlBasedOffEnviornment();
 
@@ -16,6 +17,8 @@
     }
 
     let vocabSet: any = null;
+    let imagesAddedToTerms: any = [];
+    let imagesEnabled = userSettings.learn.showImages; // Use setting
     $: setId = $page.params.id;
     $: vocabularySet = vocabSet ? (
         (() => {
@@ -29,6 +32,51 @@
             }
         })()
     ) : [];
+
+    function loadImagesEnabledState() {
+        const saved = localStorage.getItem(`images_enabled_${setId}`);
+        if (saved !== null) {
+            try {
+                imagesEnabled = JSON.parse(saved);
+            } catch (e) {
+                console.error('Error loading images enabled state:', e);
+                imagesEnabled = true;
+            }
+        }
+    }
+
+    async function reloadImages() {
+        try {
+            const addedImages = await getImagesFromSet(Number(setId));
+            imagesAddedToTerms = addedImages?.images || [];
+            console.log('📸 Images reloaded:', imagesAddedToTerms.length);
+        } catch (error) {
+            console.error('Error reloading images:', error);
+            imagesAddedToTerms = [];
+        }
+    }
+
+    // Watch for changes to imagesEnabled and reload if turning back on
+    $: if (imagesEnabled && vocabSet) {
+        reloadImages();
+    }
+
+    function getImageFromTerm(term: string) {
+        // If images are disabled for this set, return null
+        if (!imagesEnabled) {
+            return null;
+        }
+
+        if (!imagesAddedToTerms || !Array.isArray(imagesAddedToTerms) || imagesAddedToTerms.length === 0) {
+            return null;
+        }
+        const foundTerms = imagesAddedToTerms.filter((item: any) => item.associated_term === `icono-de-${term}`);
+        if (foundTerms.length > 0) {
+            return foundTerms[0].image_url;
+        } else {
+            return null;
+        }
+    }
 
     // Filtered vocabulary set based on POS selection
     $: filteredVocabularySet = (() => {
@@ -52,11 +100,11 @@
     let hasInitialized = false;
 
     // Study mode: 'term-to-definition' or 'definition-to-term'
-    let studyMode: 'term-to-definition' | 'definition-to-term' = 'term-to-definition';
+    let studyMode: 'term-to-definition' | 'definition-to-term' = userSettings.learn.defaultStudyMode === 'both' ? 'term-to-definition' : userSettings.learn.defaultStudyMode;
 
     // Question type: 'written' or 'multiple-choice'
     let questionType: 'written' | 'multiple-choice' = 'multiple-choice';
-    let questionTypePreference: 'mixed' | 'multiple-choice' | 'written' = 'mixed';
+    let questionTypePreference: 'mixed' | 'multiple-choice' | 'written' = userSettings.learn.defaultQuestionType;
     let multipleChoiceOptions: any[] = [];
     let multipleChoiceCorrectAnswer: string = ''; // Store what the correct answer should be
     let selectedOption: number | null = null;
@@ -241,7 +289,7 @@
 
             // Find mastered terms (answered correctly with high confidence)
             const masteredTerms = shuffledTerms.filter((term, idx) =>
-                answeredTerms.has(idx) && (termConfidence.get(idx) || 0) >= 2
+                answeredTerms.has(idx) && (termConfidence.get(idx) || 0) >= userSettings.learn.confidenceThreshold
             );
 
             const sessionResult = {
@@ -393,6 +441,19 @@
         if (foundSet) {
             vocabSet = foundSet;
 
+            // Load image display preference
+            loadImagesEnabledState();
+
+            // Load images for this vocab set
+            try {
+                const addedImages = await getImagesFromSet(foundSet.id);
+                imagesAddedToTerms = addedImages?.images || [];
+                console.log('📸 Images loaded:', imagesAddedToTerms.length);
+            } catch (error) {
+                console.error('Error loading images:', error);
+                imagesAddedToTerms = [];
+            }
+
             // Check for saved progress
             const progress = await loadProgress();
             if (progress) {
@@ -404,12 +465,13 @@
             goto('/vocab-sets');
         }
 
-        // Auto-save every 10 seconds
+        // Auto-save based on user settings
+        const autoSaveMs = userSettings.learn.autoSaveInterval * 1000;
         autoSaveInterval = setInterval(() => {
             if (hasInitialized && !isComplete) {
                 saveProgress();
             }
-        }, 10000);
+        }, autoSaveMs);
     });
 
     // Separate lifecycle for keyboard listener to avoid async/cleanup conflict
@@ -434,7 +496,12 @@
     });
 
     function shuffleTerms() {
-        shuffledTerms = [...filteredVocabularySet].sort(() => Math.random() - 0.5);
+        // Shuffle only if user setting is enabled
+        if (userSettings.learn.shuffleQuestions) {
+            shuffledTerms = [...filteredVocabularySet].sort(() => Math.random() - 0.5);
+        } else {
+            shuffledTerms = [...filteredVocabularySet];
+        }
 
         // Initialize term queue for spaced repetition
         termQueue = shuffledTerms.map((term, idx) => ({
@@ -505,7 +572,8 @@
         console.log('Study mode:', studyMode);
         console.log('Correct answer should be:', correctAnswer);
 
-        // Get wrong answers - make sure we have at least 3 other different terms
+        // Get wrong answers based on user setting for number of options
+        const numWrongOptions = userSettings.learn.multipleChoiceCount - 1; // Subtract 1 for correct answer
         const wrongOptions = filteredVocabularySet
             .filter((t: any) => {
                 // Filter out the current term completely
@@ -515,12 +583,12 @@
                 return true;
             })
             .sort(() => Math.random() - 0.5)
-            .slice(0, 3)
+            .slice(0, numWrongOptions)
             .map((t: any) => studyMode === 'term-to-definition' ? t.definition : t.term);
 
         console.log('Wrong options:', wrongOptions);
 
-        // Make sure we have exactly 4 options with the correct answer always included
+        // Combine correct answer with wrong options
         const allOptions = [correctAnswer, ...wrongOptions];
         console.log('All options before shuffle:', allOptions);
 
@@ -554,8 +622,15 @@
         const distance = levenshteinDistance(normalizedAnswer, normalizedCorrect);
         const maxLength = Math.max(normalizedAnswer.length, normalizedCorrect.length);
 
-        // Allow up to 20% difference for typos (more lenient for longer words)
-        return distance / maxLength <= 0.2;
+        // Get tolerance from settings: lenient (30%), normal (20%), strict (10%)
+        const toleranceMap = {
+            'lenient': 0.3,
+            'normal': 0.2,
+            'strict': 0.1
+        };
+        const tolerance = toleranceMap[userSettings.learn.fuzzyMatchingTolerance];
+
+        return distance / maxLength <= tolerance;
     }
 
     function levenshteinDistance(str1: string, str2: string): number {
@@ -641,7 +716,8 @@
 
             // Update confidence tracking
             const currentConfidence = termConfidence.get(currentIndex) || 0;
-            termConfidence.set(currentIndex, Math.min(3, currentConfidence + 1));
+            const maxConfidence = userSettings.learn.confidenceThreshold;
+            termConfidence.set(currentIndex, Math.min(maxConfidence, currentConfidence + 1));
 
             // Update term queue for spaced repetition
             const queueItem = termQueue[currentIndex];
@@ -818,13 +894,13 @@
 
             <div class="space-y-3">
                 <button
-                    on:click={handleContinue}
+                    onclick={handleContinue}
                     class="w-full px-6 py-4 rounded-lg bg-purple-500 hover:bg-purple-600 transition-all transform hover:scale-[1.02]"
                 >
                     <span class="font-bold text-white text-lg">Continue Learning</span>
                 </button>
                 <button
-                    on:click={handleRestart}
+                    onclick={handleRestart}
                     class="w-full px-6 py-4 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
                 >
                     <span class="font-medium text-gray-700 dark:text-gray-300">Start Fresh</span>
@@ -848,7 +924,7 @@
                     Add some terms to this set before you can start learning!
                 </p>
                 <button
-                    on:click={() => goto(`/vocab-sets/${setId}`)}
+                    onclick={() => goto(`/vocab-sets/${setId}`)}
                     class="px-6 py-3 rounded-lg bg-purple-500 hover:bg-purple-600 transition-all"
                 >
                     <span class="font-medium text-white">Back to Set</span>
@@ -867,7 +943,7 @@
                     Try selecting different parts of speech or click "All" to see all terms.
                 </p>
                 <button
-                    on:click={() => togglePOS('all')}
+                    onclick={() => togglePOS('all')}
                     class="px-6 py-3 rounded-lg bg-purple-500 hover:bg-purple-600 transition-all"
                 >
                     <span class="font-medium text-white">Show All Terms</span>
@@ -882,7 +958,7 @@
                 <p class="text-gray-600 dark:text-gray-400">Master your vocabulary through active recall</p>
             </div>
             <button
-                on:click={() => goto(`/vocab-sets/${setId}`)}
+                onclick={() => goto(`/vocab-sets/${setId}`)}
                 class="px-4 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
             >
                 <span class="font-medium text-gray-700 dark:text-gray-300">Back to Set</span>
@@ -890,6 +966,7 @@
         </div>
 
         <!-- Progress Bar -->
+        {#if userSettings.learn.showProgressBar}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Progress (Question #{currentIndex + 1})</span>
@@ -909,6 +986,7 @@
                 </div>
             </div>
         </div>
+        {/if}
 
         <!-- Study Mode Toggle -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700 space-y-4">
@@ -916,13 +994,13 @@
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Study Mode:</span>
                 <div class="flex gap-2">
                     <button
-                        on:click={() => studyMode = 'term-to-definition'}
+                        onclick={() => studyMode = 'term-to-definition'}
                         class="px-4 py-2 rounded-lg transition-all {studyMode === 'term-to-definition' ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         Term → Definition
                     </button>
                     <button
-                        on:click={() => studyMode = 'definition-to-term'}
+                        onclick={() => studyMode = 'definition-to-term'}
                         class="px-4 py-2 rounded-lg transition-all {studyMode === 'definition-to-term' ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         Definition → Term
@@ -934,19 +1012,19 @@
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Question Type:</span>
                 <div class="flex gap-2">
                     <button
-                        on:click={() => { questionTypePreference = 'mixed'; if (!showFeedback) generateQuestionType(); }}
+                        onclick={() => { questionTypePreference = 'mixed'; if (!showFeedback) generateQuestionType(); }}
                         class="px-4 py-2 rounded-lg transition-all {questionTypePreference === 'mixed' ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         Mixed
                     </button>
                     <button
-                        on:click={() => { questionTypePreference = 'multiple-choice'; if (!showFeedback) generateQuestionType(); }}
+                        onclick={() => { questionTypePreference = 'multiple-choice'; if (!showFeedback) generateQuestionType(); }}
                         class="px-4 py-2 rounded-lg transition-all {questionTypePreference === 'multiple-choice' ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         Multiple Choice
                     </button>
                     <button
-                        on:click={() => { questionTypePreference = 'written'; if (!showFeedback) generateQuestionType(); }}
+                        onclick={() => { questionTypePreference = 'written'; if (!showFeedback) generateQuestionType(); }}
                         class="px-4 py-2 rounded-lg transition-all {questionTypePreference === 'written' ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         Written
@@ -959,14 +1037,14 @@
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300 pt-2">Filter by POS:</span>
                 <div class="flex flex-wrap gap-2">
                     <button
-                        on:click={() => togglePOS('all')}
+                        onclick={() => togglePOS('all')}
                         class="px-4 py-2 rounded-lg transition-all {selectedPOS.has('all') ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         All ({vocabularySet.length})
                     </button>
                     {#each availablePOS as pos}
                     <button
-                        on:click={() => togglePOS(pos)}
+                        onclick={() => togglePOS(pos)}
                         class="px-4 py-2 rounded-lg transition-all {selectedPOS.has(pos) ? 'bg-indigo-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}"
                     >
                         {pos} ({vocabularySet.filter((t) => t.pos === pos).length})
@@ -996,6 +1074,20 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
                         {studyMode === 'term-to-definition' ? 'Define this term:' : 'What term matches this definition?'}
                     </p>
+
+                    <!-- Display image if available and showing the term -->
+                    {#if getImageFromTerm(currentTerm.term)}
+                        <div class="flex justify-center mb-4">
+                            <div class="w-32 h-32 sm:w-48 sm:h-48 rounded-xl shadow-lg overflow-hidden border-4 border-purple-200 dark:border-purple-700">
+                                <img
+                                    src="{getImageFromTerm(currentTerm.term)}"
+                                    alt="{currentTerm.term}"
+                                    class="w-full h-full object-cover"
+                                />
+                            </div>
+                        </div>
+                    {/if}
+
                     <h2 class="text-3xl font-bold text-gray-900 dark:text-white">
                         {#if studyMode === 'term-to-definition'}
                             {currentTerm.term}
@@ -1011,7 +1103,7 @@
                         <input
                             type="text"
                             bind:value={userAnswer}
-                            on:keypress={handleKeyPress}
+                            onkeypress={handleKeyPress}
                             placeholder="Type your answer..."
                             disabled={showFeedback}
                             class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600
@@ -1028,7 +1120,7 @@
                             </p>
                             {#each multipleChoiceOptions as option, index}
                                 <button
-                                    on:click={() => selectMultipleChoiceOption(index)}
+                                    onclick={() => selectMultipleChoiceOption(index)}
                                     disabled={showFeedback}
                                     class="w-full px-6 py-4 rounded-lg border-2 text-left transition-all transform
                                         {selectedOption === index
@@ -1078,7 +1170,7 @@
                             </p>
                             <div class="flex items-center gap-1">
                                 <span class="text-sm text-gray-600 dark:text-gray-400">Confidence:</span>
-                                {#each Array(3) as _, i}
+                                {#each Array(userSettings.learn.confidenceThreshold) as _, i}
                                     <div class="w-3 h-3 rounded-full {(termConfidence.get(currentIndex) || 0) > i ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'}"></div>
                                 {/each}
                             </div>
@@ -1111,13 +1203,13 @@
                 <div class="flex justify-center gap-4">
                     {#if !showFeedback}
                     <button
-                        on:click={skipCard}
+                        onclick={skipCard}
                         class="px-6 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                     >
                         <span class="font-medium text-gray-700 dark:text-gray-300">Skip</span>
                     </button>
                     <button
-                        on:click={checkAnswer}
+                        onclick={checkAnswer}
                         disabled={questionType === 'multiple-choice' ? selectedOption === null : !userAnswer.trim()}
                         class="px-6 py-3 rounded-lg bg-purple-500 hover:bg-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -1125,7 +1217,7 @@
                     </button>
                     {:else}
                     <button
-                        on:click={nextCard}
+                        onclick={nextCard}
                         class="px-6 py-3 rounded-lg bg-purple-500 hover:bg-purple-600 transition-all"
                     >
                         <span class="font-medium text-white">{isRetrying ? 'Try Again' : 'Continue'}</span>
@@ -1157,20 +1249,20 @@
                 <div class="flex flex-col gap-3">
                     {#if incorrectTerms.length > 0}
                     <button
-                        on:click={studyIncorrect}
+                        onclick={studyIncorrect}
                         class="w-full px-6 py-3 rounded-lg bg-purple-500 hover:bg-purple-600 transition-all"
                     >
                         <span class="font-medium text-white">Study Incorrect Terms ({incorrectTerms.length})</span>
                     </button>
                     {/if}
                     <button
-                        on:click={restartSession}
+                        onclick={restartSession}
                         class="w-full px-6 py-3 rounded-lg border-2 border-purple-500 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
                     >
                         <span class="font-medium">Restart Session</span>
                     </button>
                     <button
-                        on:click={() => goto(`/vocab-sets/${setId}`)}
+                        onclick={() => goto(`/vocab-sets/${setId}`)}
                         class="w-full px-6 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                     >
                         <span class="font-medium text-gray-700 dark:text-gray-300">Back to Set</span>

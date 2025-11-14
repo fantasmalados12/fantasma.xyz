@@ -12,6 +12,16 @@ const console_colors: object | any  = {
     'connections': 'yellow',
 }
 
+// In-memory log storage (max 1000 logs)
+export interface LogEntry {
+    timestamp: Date;
+    type: LogType;
+    message: string;
+}
+
+const logStore: LogEntry[] = [];
+const MAX_LOGS = 1000;
+
 /**
  * This will colorize and prettify console content
  * @param log_type type of log
@@ -55,4 +65,49 @@ export function write_to_logs(log_type: LogType, contents: string, console_log: 
 
     console.log(log_contents);
 
+    // Store in memory
+    logStore.push({
+        timestamp: new Date(),
+        type: log_type,
+        message: contents
+    });
+
+    // Keep only the last MAX_LOGS entries
+    if (logStore.length > MAX_LOGS) {
+        logStore.shift();
+    }
+}
+
+/**
+ * Get all stored logs
+ * @returns LogEntry[]
+ */
+export function getLogs(): LogEntry[] {
+    return [...logStore];
+}
+
+/**
+ * Get logs filtered by type
+ * @param log_type LogType
+ * @returns LogEntry[]
+ */
+export function getLogsByType(log_type: LogType): LogEntry[] {
+    return logStore.filter(log => log.type === log_type);
+}
+
+/**
+ * Get logs from a specific time range
+ * @param startTime Date
+ * @param endTime Date
+ * @returns LogEntry[]
+ */
+export function getLogsByTimeRange(startTime: Date, endTime: Date): LogEntry[] {
+    return logStore.filter(log => log.timestamp >= startTime && log.timestamp <= endTime);
+}
+
+/**
+ * Clear all logs
+ */
+export function clearLogs(): void {
+    logStore.length = 0;
 }

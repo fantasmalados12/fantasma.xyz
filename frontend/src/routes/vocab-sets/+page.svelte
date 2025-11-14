@@ -89,7 +89,7 @@
             <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3">No Vocabulary Sets Yet</h2>
             <p class="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 mb-6 sm:mb-8 px-4">Create your first vocab set to start learning!</p>
             <button
-                on:click={() => goto('/scrape')}
+                onclick={() => goto('/scrape')}
                 class="px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
             >
                 Create Your First Set
@@ -100,7 +100,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {#each vocabSets as set, index}
                 <div
-                    on:click={() => goto(`/vocab-sets/${set.id}`)}
+                    onclick={() => goto(`/vocab-sets/${set.id}`)}
                     class="group relative bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 hover:-translate-y-2 cursor-pointer"
                 >
                     <!-- Gradient Header -->
@@ -130,14 +130,14 @@
                         <!-- Action Buttons -->
                         <div class="flex gap-2">
                             <button
-                                on:click={(e) => { e.stopPropagation(); goto(`/learn/${set.id}`); }}
+                                onclick={(e) => { e.stopPropagation(); goto(`/learn/${set.id}`); }}
                                 class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-2 px-3 sm:py-3 sm:px-4 text-sm sm:text-base rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-1 sm:gap-2"
                             >
                                 <span class="text-base sm:text-lg">🎯</span>
                                 <span>Learn</span>
                             </button>
                             <button
-                                on:click={(e) => { e.stopPropagation(); goto(`/vocab-sets/${set.id}`); }}
+                                onclick={(e) => { e.stopPropagation(); goto(`/vocab-sets/${set.id}`); }}
                                 class="px-3 py-2 sm:px-4 sm:py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg sm:rounded-xl transition-all duration-200 hover:shadow-md"
                             >
                                 <span class="text-base sm:text-lg">👁️</span>
@@ -153,7 +153,7 @@
 
         <!-- Create New Set FAB -->
         <button
-            on:click={() => goto('/scrape')}
+            onclick={() => goto('/scrape')}
             class="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-full shadow-2xl hover:shadow-purple-500/50 transform hover:scale-110 transition-all duration-200 flex items-center justify-center text-2xl sm:text-3xl z-50"
             title="Create New Set"
         >
