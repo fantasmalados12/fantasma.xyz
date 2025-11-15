@@ -8,6 +8,7 @@
     import { onMount } from "svelte";
     import { importCSV } from "../../utils/CSVImporter";
     import { goto } from "$app/navigation";
+    import WordInfoModal from "../../components/WordInfoModal.svelte";
 
     // Import method selection
     let importMethod: 'scrape' | 'csv' = 'csv';  // Default to CSV
@@ -26,6 +27,8 @@
     let showAddLibraryConfirmation: boolean = false;
     let irregularVerbs: Map<string, boolean> = new Map();
     let stemChangingVerbs: Map<string, boolean> = new Map();
+    let showWordInfo = false;
+    let selectedWord = '';
 
     // Fetch import capabilities on mount
     onMount(async () => {
@@ -278,6 +281,16 @@
 
     function cancelAddLibrary() {
         showAddLibraryConfirmation = false;
+    }
+
+    function showWordInfoModal(word: string) {
+        selectedWord = word;
+        showWordInfo = true;
+    }
+
+    function closeWordInfoModal() {
+        showWordInfo = false;
+        selectedWord = '';
     }
 
         // Example: number of items per page
@@ -637,6 +650,16 @@
                         <p class="text-xs sm:text-sm font-medium text-purple-500">{ term.estimatedIterations }</p>
                     </div>
 
+                    <button
+                        onclick={() => showWordInfoModal(term.term)}
+                        class="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:p-2 text-xs sm:text-sm rounded-md border-2 border-blue-300 dark:border-blue-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+                        title="View word information"
+                    >
+                        <span class="font-medium text-blue-700 dark:text-blue-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                            ℹ️ Info
+                        </span>
+                    </button>
+
                     { #if term.pos === 'verb' }
                         <button
                             onclick={() => togglePopup(term.term)}
@@ -819,6 +842,11 @@
             </div>
         </div>
     </div>
+{/if}
+
+<!-- Word Info Modal -->
+{#if showWordInfo}
+    <WordInfoModal word={selectedWord} onClose={closeWordInfoModal} />
 {/if}
 
 <style>

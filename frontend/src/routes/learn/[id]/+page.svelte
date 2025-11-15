@@ -4,7 +4,7 @@
     import { page } from '$app/stores';
     import { getLibrarySets, getImagesFromSet } from "../../../utils/LibrarySets";
     import { goto } from "$app/navigation";
-    import { generateSmartExample } from "../../../utils/ExampleSentences";
+    import { getSmartExample, fetchWordData, type WordData } from "../../../utils/ExampleSentences";
     import { authStore } from "../../../utils/authStore.svelte";
     import { getAPIUrlBasedOffEnviornment } from "../../../utils/API";
     import { userSettings } from "../../../utils/settings.svelte";
@@ -126,8 +126,10 @@
     let sessionStartTime: number = 0;
     let questionTypesUsed: Set<string> = new Set();
 
-    // Example sentence
+    // Example sentence from dictionary API
     let exampleSentence: string = '';
+    let isLoadingExample: boolean = false;
+    let wordData: WordData | null = null;
 
     // Confidence tracking for spaced repetition
     let termConfidence: Map<number, number> = new Map(); // 0 = not learned, 1-3 = confidence levels
@@ -179,6 +181,40 @@
     $: if (isComplete && hasInitialized) {
         saveSessionResults();
         deleteProgress();
+    }
+
+    // Reactive: Fetch example sentence when current term changes
+    $: if (currentTerm && hasInitialized) {
+        fetchExampleForCurrentTerm();
+    }
+
+    // Fetch example sentence from dictionary API
+    async function fetchExampleForCurrentTerm() {
+        if (!currentTerm) return;
+
+        isLoadingExample = true;
+        exampleSentence = '';
+        wordData = null;
+
+        try {
+            // Fetch word data for the Spanish term
+            const data = await fetchWordData(currentTerm.term);
+            wordData = data;
+
+            // Get a smart example (tries API first, falls back to templates)
+            const example = await getSmartExample(
+                currentTerm.term,
+                currentTerm.definition,
+                currentTerm.pos
+            );
+
+            exampleSentence = example;
+        } catch (error) {
+            console.error('Error fetching example:', error);
+            exampleSentence = '';
+        } finally {
+            isLoadingExample = false;
+        }
     }
 
     // Load saved progress
@@ -1194,6 +1230,33 @@
                                 ? 'Next: Try multiple choice'
                                 : 'Next: Type your answer'}
                         </p>
+                        {/if}
+
+                        <!-- Example Sentence from Dictionary API -->
+                        {#if exampleSentence}
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                💡 Example Usage:
+                            </p>
+                            <p class="text-gray-600 dark:text-gray-400 italic">
+                                "{exampleSentence}"
+                            </p>
+                        </div>
+                        {:else if isLoadingExample}
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Loading example...
+                            </p>
+                        </div>
+                        {/if}
+
+                        <!-- Additional word data (if available from dictionary API) -->
+                        {#if wordData && wordData.phonetic}
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                <span class="font-medium">Pronunciation:</span> {wordData.phonetic}
+                            </p>
+                        </div>
                         {/if}
                     </div>
                 </div>

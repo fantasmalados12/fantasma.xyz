@@ -82,7 +82,7 @@
     { name: 'Dashboard', path: '/', icon: 'LayoutDashboard' },
     { name: 'Import Set', path: '/scrape', icon: 'BookOpen' },
 	{ name: "Vocab Sets", path: "/vocab-sets", icon: "BookOpen" },
-  //   { name: 'Statistics', path: '/statistics', icon: 'History' },
+    { name: 'Analytics', path: '/statistics', icon: 'ChartBar' },
 	// { name: "Grammar", path: "/grammar", icon: "BookOpen"},
 	{ name: 'Settings', path: '/settings', icon: 'Settings' },
   ];

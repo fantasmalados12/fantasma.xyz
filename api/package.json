@@ -43,6 +43,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "rate-limit-redis": "^3.0.2",
     "redis": "^3.1.2",
+    "reverso-api": "^2.22.10",
     "sharp": "^0.33.3",
     "spanish-verbs": "^3.4.0",
     "spanishconjugator": "^2.0.1",

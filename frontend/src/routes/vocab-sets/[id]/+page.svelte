@@ -8,6 +8,7 @@
     import { authStore } from "../../../utils/authStore.svelte";
     import { featureFlagsStore } from "../../../utils/featureFlags.svelte";
     import { getAPIUrlBasedOffEnviornment } from "../../../utils/API";
+    import WordInfoModal from "../../../components/WordInfoModal.svelte";
 
     const API_BASE = getAPIUrlBasedOffEnviornment();
 
@@ -98,6 +99,8 @@
     let activeTab: 'set' | 'stats' = 'set'; // Tab state
     let isPlayingGlossary = false;
     let glossaryProgress = 0;
+    let showWordInfo = false;
+    let selectedWord = '';
 
     async function checkIrregularVerbs() {
         // Get all verb terms from the vocabulary set
@@ -510,6 +513,16 @@
     function updateVocabSet() {
         // TODO: Implement update functionality
         console.log('Updating vocab set:', setId);
+    }
+
+    function showWordInfoModal(word: string) {
+        selectedWord = word;
+        showWordInfo = true;
+    }
+
+    function closeWordInfoModal() {
+        showWordInfo = false;
+        selectedWord = '';
     }
 
     // Calculate statistics from vocabularySet
@@ -963,6 +976,16 @@
                         <p class="text-xs sm:text-sm font-medium text-purple-500">{ term.estimatedIterations }</p>
                     </div>
 
+                    <button
+                        onclick={() => showWordInfoModal(term.term)}
+                        class="flex items-center gap-1 sm:gap-2 px-2 py-1 sm:p-2 text-xs sm:text-sm rounded-md border-2 border-blue-300 dark:border-blue-600 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+                        title="View word information"
+                    >
+                        <span class="font-medium text-blue-700 dark:text-blue-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                            ℹ️ Info
+                        </span>
+                    </button>
+
                     { #if term.pos === 'verb' }
                         <button
                             onclick={() => togglePopup(term.term)}
@@ -1119,6 +1142,11 @@
         <p class="text-gray-600 dark:text-gray-400 mt-1">Loading...</p>
     {/if}
 </div>
+
+<!-- Word Info Modal -->
+{#if showWordInfo}
+    <WordInfoModal word={selectedWord} onClose={closeWordInfoModal} />
+{/if}
 
 <style>
     @keyframes modal-in {

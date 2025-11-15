@@ -27,6 +27,19 @@ import:
   scrape:
     enabled: false  # If false, scraping endpoints will return 403
 
+dictionary:
+  # Dictionary API configuration for Spanish word lookups
+  enabled: true
+
+  # Merriam-Webster Spanish-English Dictionary API (optional)
+  # Get your free API key at: https://dictionaryapi.com/register/index
+  # Free tier: 1000 requests/day for non-commercial use
+  # Leave empty to use only Free Dictionary API
+  merriamWebsterApiKey: "2a8e6650-df61-4a73-b12d-69efea5c9155"  # Optional: Add your Merriam-Webster API key here
+
+  cache:
+    ttl: 604800  # Cache TTL in seconds (7 days)
+
 security:
 
   password:
