@@ -21,6 +21,7 @@
   import StudyTimeHeatmap from '../../components/analytics/StudyTimeHeatmap.svelte';
   import { formatTime } from '../../utils/chartConfig';
   import axios from 'axios';
+    import { getAPIUrlBasedOffEnviornment } from '../../utils/API';
 
   let activeTab = $state<'overview' | 'performance' | 'patterns' | 'comparison'>('overview');
   let loading = $state(true);
@@ -37,7 +38,7 @@
   let comparison = $state<ComparisonData | null>(null);
   let sessionTrends = $state<SessionTrend[]>([]);
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_BASE = getAPIUrlBasedOffEnviornment();
 
   onMount(() => {
     if (!authStore.user) {
